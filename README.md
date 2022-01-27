@@ -15,7 +15,7 @@ Home-page: https://pytorch.org/
 Author: PyTorch Team
 Author-email: packages@pytorch.org
 License: BSD-3
-Location: /home/xuewei/anaconda3/envs/CenterTrack/lib/python3.6/site-packages
+Location: /home/{Path}/anaconda3/envs/CenterTrack/lib/python3.6/site-packages
 Requires: numpy, typing-extensions, future, dataclasses
 Required-by: torchvision, torchaudio
 
@@ -34,9 +34,9 @@ GTX3090
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
 -- Found Protobuf: /usr/local/lib/libprotobuf.so;-lpthread (found version "3.15.8") 
-Generated: /home/xuewei/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx_onnx2trt_onnx-ml.proto
-Generated: /home/xuewei/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-operators_onnx2trt_onnx-ml.proto
-Generated: /home/xuewei/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-data_onnx2trt_onnx.proto
+Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx_onnx2trt_onnx-ml.proto
+Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-operators_onnx2trt_onnx-ml.proto
+Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-data_onnx2trt_onnx.proto
 -- 
 -- ******** Summary ********
 --   CMake version         : 3.22.2
@@ -74,7 +74,7 @@ Generated: /home/xuewei/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_p
 -- Found OpenCV: /usr/local (found version "4.5.1") 
 -- Configuring done
 -- Generating done
--- Build files have been written to: /home/xuewei/TensorRT-CenterNet-3D-master/build
+-- Build files have been written to: /home/{Path}/TensorRT-CenterNet-3D-master/build
 ```
 
 ``` 
@@ -123,4 +123,3 @@ cd ..
 * [centerface](https://github.com/Star-Clouds/centerface)
 * [netron](https://github.com/lutzroeder/netron)
 * [cpp-optparse](https://github.com/weisslj/cpp-optparse)
-    
