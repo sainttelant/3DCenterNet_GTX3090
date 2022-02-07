@@ -27,6 +27,7 @@ include_directories(${CUDA_INCLUDE_DIRS}
                     ${TENSORRT_INCLUDE_DIR}
                     ${OpenCV_INCLUDE_DIRS}
                     ../include
+                    ../include/common
                     ../onnx-tensorrt)
 
 cuda_add_library(ctdet SHARED ${CPP_SRC} ${CU_SRC})
@@ -34,5 +35,5 @@ target_link_libraries(ctdet
         ${TENSORRT_LIBRARY_INFER}
         ${OpenCV_LIBS}
         nvonnxparser
-        nvonnxparser_runtime
+      
         cublas)
