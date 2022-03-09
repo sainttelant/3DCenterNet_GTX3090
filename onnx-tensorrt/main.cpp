@@ -42,6 +42,8 @@ void print_usage() {
 }
 
 int main(int argc, char* argv[]) {
+
+  cout<<"wilson<<<<<<<<<<<1"<<endl;
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   std::string engine_filename;
@@ -95,6 +97,8 @@ int main(int argc, char* argv[]) {
     case 'h': print_usage(); return 0;
     }
   }
+
+  cout<<"wilson<<<<<<<<<<<2"<<endl;
 
   std::vector<std::string> optimizationPassNames;
 
@@ -280,6 +284,7 @@ int main(int argc, char* argv[]) {
       cerr << "ERROR: Int8 mode not yet supported" << endl;
       return -5;
     }
+    cout<<"print via wilson<<<<<<<<<<<"<<endl;
     auto trt_engine = common::infer_object(trt_builder->buildEngineWithConfig(*trt_network.get(), *builder_config.get()));
 
     auto engine_plan = common::infer_object(trt_engine->serialize());

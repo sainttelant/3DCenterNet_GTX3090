@@ -229,12 +229,15 @@ private:
 inline std::string locateFile(
     const std::string& filepathSuffix, const std::vector<std::string>& directories, bool reportError = true)
 {
+
+    std::cout<<"wilson  locateFile<<<<<<<<<<<1 \n"<<std::endl;
     const int MAX_DEPTH{10};
     bool found{false};
     std::string filepath;
-
+    printf("directories.size:%d \n",directories.size());
     for (auto& dir : directories)
     {
+        std::cout<<"wilson  locateFile<<<<<<<<<<<2 \n"<<std::endl;
         if (!dir.empty() && dir.back() != '/')
         {
 #ifdef _MSC_VER

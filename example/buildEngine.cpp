@@ -8,6 +8,7 @@
 #include <iostream>
 #include "ctdetNet.h"
 #include "utils.h"
+using namespace std;
 
 int main(int argc, const char** argv)
 {
@@ -28,7 +29,8 @@ int main(int argc, const char** argv)
     if(options["mode"] == "0" ) mode = ctdet::RUN_MODE::FLOAT32;
     if(options["mode"] == "1" ) mode = ctdet::RUN_MODE::FLOAT16;
     if(options["mode"] == "2" ) mode = ctdet::RUN_MODE::INT8;
-
+    cout<<"wilson<<<<<<<<<in buildengine.cpp \n"<<endl;
+    
     ctdet::ctdetNet net(options["onnxFile"], options["calibFile"] ,mode);
     net.saveEngine(options["outputFile"]);
 

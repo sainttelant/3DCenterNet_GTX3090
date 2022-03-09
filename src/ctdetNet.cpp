@@ -8,7 +8,7 @@
 #include "ctdetLayer.h"
 #include "entroyCalibrator.h"
 
-
+using namespace std;
 
 #ifdef tensorrt8
 
@@ -23,16 +23,22 @@ namespace ctdet
             mContext(nullptr),
             mEngine(nullptr),
             mRunTime(nullptr),
+           
             runMode(mode),
             runIters(0)   
     {
 
+        memset(&mParams,0,sizeof(mParams));
+         mParams.onnxFileName = onnxFile;
+         //mParams.dataDirs = 
+         std::cout<<"wilson init ctdet begin<<<<<<<<<<<1 \n"<<std::endl;
         const int maxBatchSize = 1;
         nvinfer1::IHostMemory *modelStream{nullptr};
         int verbosity = (int) nvinfer1::ILogger::Severity::kWARNING;
-
+       std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.1 \n"<<std::endl;     
         //nvinfer1::IBuilder* builder = nvinfer1::createInferBuilder(sample::gLogger);
         auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.2 \n"<<std::endl;   
         if (!builder)
         {
             std::cout<<"build failed!"<<std::endl;
@@ -40,36 +46,38 @@ namespace ctdet
 
         const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
         auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+         std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.3 \n"<<std::endl;   
         if (!network)
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.4 \n"<<std::endl;  
         auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
         if (!config)
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.5 \n"<<std::endl;  
         auto parser
             = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
         if (!parser)
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.6 \n"<<std::endl;  
         auto constructed = constructNetwork(builder, network, config, parser);
         if (!constructed)
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.7 \n"<<std::endl;  
         // CUDA stream used for profiling by the builder.
         auto profileStream = samplesCommon::makeCudaStream();
         if (!profileStream)
         {
             std::cout<<"build failed!"<<std::endl;
         }
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.8 \n"<<std::endl;  
         config->setProfileStream(*profileStream);
 
         SampleUniquePtr<IHostMemory> plan{builder->buildSerializedNetwork(*network, *config)};
@@ -77,7 +85,7 @@ namespace ctdet
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
+std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;  
         SampleUniquePtr<IRuntime> runtime{createInferRuntime(sample::gLogger.getTRTLogger())};
         if (!runtime)
         {
@@ -91,7 +99,7 @@ namespace ctdet
             std::cout<<"build failed!"<<std::endl;
         }
 
-
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<2 \n"<<std::endl;
 
         ASSERT(network->getNbInputs() == 1);
         mInputDims = network->getInput(0)->getDimensions();
@@ -101,7 +109,7 @@ namespace ctdet
         mOutputDims = network->getOutput(0)->getDimensions();
         ASSERT(mOutputDims.nbDims == 2);   
 
-
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<3 \n"<<std::endl;
         //auto parser = nvonnxparser::createParser(*network, sample::gLogger);
         if (!parser->parseFromFile(onnxFile.c_str(), verbosity))
         {
@@ -109,6 +117,8 @@ namespace ctdet
             sample::gLogger.log(nvinfer1::ILogger::Severity::kERROR, msg.c_str());
             exit(EXIT_FAILURE);
         }
+
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<4 \n"<<std::endl;
 
         builder->setMaxBatchSize(maxBatchSize);
        // builder->setMaxWorkspaceSize(1 << 30);// 1G
@@ -168,6 +178,7 @@ namespace ctdet
         assert(mEngine != nullptr);
         modelStream->destroy();
         InitEngine();
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<5 \n"<<std::endl;
 
     }
   
@@ -175,14 +186,28 @@ namespace ctdet
     SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
     SampleUniquePtr<nvonnxparser::IParser>& parser)
 {
-    auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
-        static_cast<int>(sample::gLogger.getReportableSeverity()));
+
+     std::cout<<"wilson  constructNetwork<<<<<<<<<<<1 \n"<<std::endl;
+     printf("mParams.onnxFileName:%s \n",mParams.onnxFileName.c_str());
+     printf("mParams.dataDirs:%d \n",mParams.dataDirs.size());
+     std::string onnxpath = "/home/xuewei/tensort-3D/model/ddd_3dop.onnx";
+    //auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
+        //static_cast<int>(sample::gLogger.getReportableSeverity()));
+    auto parsed = parser->parseFromFile(onnxpath.c_str(),static_cast<int>(sample::gLogger.getReportableSeverity()));
+
+
+
+        
+    printf("parsed = %d \n",parsed);
+      std::cout<<"wilson  constructNetwork<<<<<<<<<<<1.1 \n"<<std::endl;
     if (!parsed)
     {
+        std::cout<<"parsed is null, return false \n"<<std::endl;
         return false;
     }
 
     config->setMaxWorkspaceSize(16_MiB);
+     std::cout<<"wilson  constructNetwork<<<<<<<<<<<1.2 \n"<<std::endl;
     if (mParams.fp16)
     {
         config->setFlag(BuilderFlag::kFP16);
@@ -192,9 +217,9 @@ namespace ctdet
         config->setFlag(BuilderFlag::kINT8);
         samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
     }
-
+    std::cout<<"wilson  constructNetwork<<<<<<<<<<<1.3 \n"<<std::endl;
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-
+    std::cout<<"wilson  constructNetwork<<<<<<<<<<<2 \n"<<std::endl;
     return true;
 }
 
@@ -307,8 +332,10 @@ namespace ctdet
     
     void ctdetNet::saveEngine(const std::string &fileName)
     {
+        cout<<"wilson<<<<<<<<<in saveEngine fuct1 \n"<<endl;
         if(mEngine)
         {
+            cout<<"wilson<<<<<<<<<in saveEngine fuct engine in\n"<<endl;
             nvinfer1::IHostMemory* data = mEngine->serialize();
             std::ofstream file;
             file.open(fileName,std::ios::binary | std::ios::out);
@@ -320,7 +347,7 @@ namespace ctdet
             file.write((const char*)data->data(), data->size());
             file.close();
         }
-
+        cout<<"wilson<<<<<<<<<in saveEngine fuctout\n"<<endl;
     }
 }
 

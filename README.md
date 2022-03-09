@@ -1,5 +1,13 @@
 # TensorRT-CenterNet-3D   
 Most parts of this Repo are based on [CaoWGG](https://github.com/CaoWGG/TensorRT-CenterNet), Thanks for that great work.
+
+Attention:::
+
+
+
+mv /usr/lib/libcuda.so /usr/lib/libcuda.so.bak 
+then run program!
+
 ### 1. Enviroments
 ```
 ubuntu 18.04

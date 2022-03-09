@@ -85,6 +85,7 @@ namespace ctdet
         std::shared_ptr<nvinfer1::ICudaEngine> mEngine;
         nvinfer1::IRuntime* mRunTime;
 
+        
         nvinfer1::Dims mInputDims;  //!< The dimensions of the input to the network.
         nvinfer1::Dims mOutputDims; //!< The dimensions of the output to the network.
         int mNumber{0};             //!< The number to classify

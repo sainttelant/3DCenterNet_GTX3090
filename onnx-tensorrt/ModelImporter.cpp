@@ -732,11 +732,15 @@ Status ModelImporter::importModel(
 
 bool ModelImporter::parseFromFile(const char* onnxModelFile, int32_t verbosity)
 {
+    printf("parseFromFile access<<<<<<<<<<<1");
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     ::ONNX_NAMESPACE::ModelProto onnx_model;
     auto* ctx = &_importer_ctx;
 
     const bool is_binary = ParseFromFile_WAR(&onnx_model, onnxModelFile);
+
+    printf("parseFromFile:%d \n",is_binary);
+
     if (!is_binary && !ParseFromTextFile(&onnx_model, onnxModelFile))
     {
         LOG_ERROR("Failed to parse ONNX model from file: " << onnxModelFile);

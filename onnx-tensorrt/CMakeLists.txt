@@ -3,6 +3,12 @@
 cmake_minimum_required(VERSION 3.13)
 project(onnx2trt LANGUAGES CXX C)
 
+SET(CMAKE_BUILD_TYPE "Debug")
+
+SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
+
+SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+
 set(ONNX2TRT_ROOT ${PROJECT_SOURCE_DIR})
 # Set C++14 as standard for the whole project
 set(CMAKE_CXX_STANDARD 14)
