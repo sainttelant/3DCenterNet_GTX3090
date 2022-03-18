@@ -7,6 +7,8 @@
 #include "ctdetNet.h"
 #include "ctdetLayer.h"
 #include "entroyCalibrator.h"
+#include "NvInferPlugin.h"
+#include "InferPlugin.cpp"
 
 using namespace std;
 
@@ -28,6 +30,27 @@ namespace ctdet
             runIters(0)   
     {
 
+        //REGISTER_TENSORRT_PLUGIN(DCNv2PluginCreator);
+        bool checkplugin = initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
+        printf("checkplugin:%d \n", checkplugin);
+        // get creater
+            // Get list of all available plugin creators
+        int numCreators = 0;
+        nvinfer1::IPluginCreator* const* tmpList = getPluginRegistry()->getPluginCreatorList(&numCreators);
+        printf("numcreators:%d, tmpList:%d \n",numCreators, tmpList);
+        for (int k = 0; k < numCreators; ++k)
+        {
+            if (!tmpList[k])
+            {
+                std::cout << "Plugin Creator for plugin " << k << " is a nullptr." << std::endl;
+                continue;
+            }
+            std::string pluginName = tmpList[k]->getPluginName();
+            printf("creator's name:%s \n",pluginName.c_str());
+            //mPluginRegistry[pluginName] = tmpList[k];
+        }
+
+
         memset(&mParams,0,sizeof(mParams));
          mParams.onnxFileName = onnxFile;
          //mParams.dataDirs = 
@@ -35,10 +58,13 @@ namespace ctdet
         const int maxBatchSize = 1;
         nvinfer1::IHostMemory *modelStream{nullptr};
         int verbosity = (int) nvinfer1::ILogger::Severity::kWARNING;
-       std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.1 \n"<<std::endl;     
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.1 \n"<<std::endl;     
         //nvinfer1::IBuilder* builder = nvinfer1::createInferBuilder(sample::gLogger);
         auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
         std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.2 \n"<<std::endl;   
+
+
+    
         if (!builder)
         {
             std::cout<<"build failed!"<<std::endl;
