@@ -31,11 +31,12 @@ namespace ctdet
     {
 
         //REGISTER_TENSORRT_PLUGIN(DCNv2PluginCreator);
-        bool checkplugin = initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
-        printf("checkplugin:%d \n", checkplugin);
+        // initLib is corresponding to register in the following code .
+        //bool checkplugin = initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
+        //printf("checkplugin:%d \n", checkplugin);
         // get creater
             // Get list of all available plugin creators
-        int numCreators = 0;
+       /*  int numCreators = 0;
         nvinfer1::IPluginCreator* const* tmpList = getPluginRegistry()->getPluginCreatorList(&numCreators);
         printf("numcreators:%d, tmpList:%d \n",numCreators, tmpList);
         for (int k = 0; k < numCreators; ++k)
@@ -49,8 +50,15 @@ namespace ctdet
             printf("creator's name:%s \n",pluginName.c_str());
             //mPluginRegistry[pluginName] = tmpList[k];
         }
+        std::string pluginname = "DCNv2";
+        std::string version = "001";
+
+        auto creator = getPluginRegistry()->getPluginCreator(pluginname.c_str(),version.c_str()); */
+        //const PluginFieldCollection* pluginFC = creator->getFieldNames();
+        //PluginFieldCollection*plugindata = parseAndFillFields(pluginFC,layfileds);
 
 
+        
         memset(&mParams,0,sizeof(mParams));
          mParams.onnxFileName = onnxFile;
          //mParams.dataDirs = 
@@ -63,7 +71,7 @@ namespace ctdet
         auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
         std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.2 \n"<<std::endl;   
 
-
+        
     
         if (!builder)
         {

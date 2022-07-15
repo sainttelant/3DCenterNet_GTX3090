@@ -163,7 +163,7 @@ public:
     //!
     //! Destroy the allocated memory.
     //!
-    //! \deprecated Deprecated interface will be removed in TensorRT 10.0.
+//! \deprecated Deprecated interface will be removed in TensorRT 10.0.
     //!
     //! \warning Calling destroy on a managed pointer will result in a double-free error.
     //!

@@ -101,7 +101,7 @@ DCNv2Plugin::~DCNv2Plugin() {
 
 void DCNv2Plugin::configurePlugin (const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs, 
     const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) noexcept {
-  assert(nbInputs == 3);
+  //assert(nbInputs == 3);
   assert(nbOutputs == 1);
   auto &input_desc = in[0].desc;
   auto input_dims = input_desc.dims;
@@ -110,7 +110,7 @@ void DCNv2Plugin::configurePlugin (const nvinfer1::DynamicPluginTensorDesc* in, 
 }
 
 bool DCNv2Plugin::supportsFormatCombination  (int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept {
-  assert(nbInputs == 3);
+  //assert(nbInputs == 3);
   assert(nbOutputs == 1);
   assert(pos < (nbInputs + nbOutputs));
   return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == TensorFormat::kCHW32);
@@ -121,7 +121,7 @@ nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions  (int outputIndex,
                                                      int nbInputs,
                                                      nvinfer1::IExprBuilder& exprBuilder)noexcept {
   assert(outputIndex == 0);
-  assert(nbInputs == 3);
+  //assert(nbInputs == 3);
   nvinfer1::DimsExprs output(inputs[0]);
   auto input_h = output.d[2]->getConstantValue();
   auto input_w = output.d[3]->getConstantValue();
@@ -204,7 +204,7 @@ void DCNv2Plugin::destroy() noexcept{
 
 nvinfer1::DataType DCNv2Plugin::getOutputDataType  (int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept{
   assert(index == 0);
-  assert(nbInputs == 3);
+  //assert(nbInputs == 3);
   assert(inputTypes[0] == nvinfer1::DataType::kFLOAT);
   return inputTypes[0];
 }
@@ -248,7 +248,7 @@ const char* DCNv2PluginCreator::getPluginName()const noexcept
 
 const char* DCNv2PluginCreator::getPluginVersion()const noexcept
 {
-    return "001";
+    return "1";
 }
 
 const PluginFieldCollection* DCNv2PluginCreator::getFieldNames () noexcept

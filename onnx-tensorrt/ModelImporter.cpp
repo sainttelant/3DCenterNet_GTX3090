@@ -732,7 +732,7 @@ Status ModelImporter::importModel(
 
 bool ModelImporter::parseFromFile(const char* onnxModelFile, int32_t verbosity)
 {
-    printf("parseFromFile access<<<<<<<<<<<1");
+    printf("parseFromFile access<<<<<<<<<<<1 \n");
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     ::ONNX_NAMESPACE::ModelProto onnx_model;
     auto* ctx = &_importer_ctx;

@@ -4458,6 +4458,64 @@ DEFINE_BUILTIN_OP_IMPORTER(Squeeze)
     return {{squeezed}};
 }
 
+
+DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
+{
+    ASSERT(inputs.at(0).is_tensor(),  ErrorCode::kUNSUPPORTED_NODE); // input
+    ASSERT(inputs.at(1).is_tensor(), ErrorCode::kUNSUPPORTED_NODE); // offset
+    ASSERT(inputs.at(2).is_weights(), ErrorCode::kUNSUPPORTED_NODE); // mask
+    ASSERT(inputs.at(3).is_weights(), ErrorCode::kUNSUPPORTED_NODE); // weight
+
+    std::vector<nvinfer1::ITensor*> tensors {&inputs.at(0).tensor(), &inputs.at(1).tensor(), &inputs.at(2).tensor()};
+    auto kernel_weights = inputs.at(3).weights();
+    nvinfer1::Weights bias_weights;
+    if( inputs.size() == 5 ) {
+        ASSERT(inputs.at(4).is_weights(), ErrorCode::kUNSUPPORTED_NODE);
+        auto shaped_bias_weights = inputs.at(4).weights();
+        ASSERT(shaped_bias_weights.shape.nbDims == 1, ErrorCode::kINVALID_NODE);
+        ASSERT(shaped_bias_weights.shape.d[0] == kernel_weights.shape.d[0], ErrorCode::kINVALID_NODE);
+        bias_weights = shaped_bias_weights;
+    } else {
+        bias_weights = ShapedWeights::empty(kernel_weights.type);
+    }
+    int out_channel,in_channel,kernel_H,kernel_W,deformable_group,dilation,groups,padding,stride;
+    out_channel = kernel_weights.shape.d[0];
+    in_channel = kernel_weights.shape.d[1];
+    kernel_H = kernel_weights.shape.d[2];
+    kernel_W = kernel_weights.shape.d[3];
+
+    OnnxAttrs attrs(node, ctx);
+    deformable_group = attrs.get("deformable_group", 1);
+    dilation = attrs.get("dilation", 1);
+    groups = attrs.get("groups", 1);
+    padding = attrs.get("padding", 1);
+    stride = attrs.get("stride", 1);
+
+    const std::string pluginName = "DCNv2";
+    const std::string pluginVersion = "1";
+    std::vector<nvinfer1::PluginField> f;
+    f.emplace_back("in_channel", &in_channel, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("out_channel", &out_channel, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("kernel_h", &kernel_H, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("kernel_w", &kernel_W, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("deformable_group", &deformable_group, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("groups", &groups, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("padding", &padding, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("stride", &stride, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("dilation", &dilation, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("weight", kernel_weights.values, nvinfer1::PluginFieldType::kFLOAT32, kernel_weights.count());
+    f.emplace_back("bias", bias_weights.values, nvinfer1::PluginFieldType::kFLOAT32, bias_weights.count);
+
+    const auto plugin = createPlugin(getNodeName(node), importPluginCreator(pluginName, pluginVersion), f);
+
+    ASSERT(plugin != nullptr && "InstanceNormalization plugin was not found in the plugin registry!",
+        ErrorCode::kUNSUPPORTED_NODE);
+
+    RETURN_FIRST_OUTPUT(ctx->network()->addPluginV2(tensors.data() ,2, *plugin));
+
+    
+}
+
 DEFINE_BUILTIN_OP_IMPORTER(Sub)
 {
     return elementwiseHelper(ctx, node, inputs, nvinfer1::ElementWiseOperation::kSUB);
@@ -4863,8 +4921,15 @@ DEFINE_BUILTIN_OP_IMPORTER(FallbackPluginImporter)
     OnnxAttrs attrs(node, ctx);
     const std::string pluginName{node.op_type()};
     const std::string pluginVersion{attrs.get<std::string>("plugin_version", "1")};
-    const std::string pluginNamespace{attrs.get<std::string>("plugin_namespace", "")};
 
+    //const std::string pluginName{"DCNv2_TRT"};
+    //const std::string pluginVersion{attrs.get<std::string>("plugin_version", "001")};
+
+    const std::string pluginNamespace{attrs.get<std::string>("plugin_namespace", "")};
+    printf("--------------plugin infors------------");
+    printf("-----------Plugins:%s, version:%s,pluginnamespace:%s \n",pluginName.c_str(),pluginVersion.c_str(),pluginNamespace.c_str());
+    //printf("Plugins:%s, version:%s,pluginnamespace:%s \n",pluginName,pluginVersion,pluginNamespace);
+    //printf("Plugins:%s, version:%s,pluginnamespace:%s \n",pluginName,pluginVersion,pluginNamespace);
     LOG_INFO("Searching for plugin: " << pluginName << ", plugin_version: " << pluginVersion << ", plugin_namespace: " << pluginNamespace);
     nvinfer1::IPluginCreator* creator = importPluginCreator(pluginName, pluginVersion, pluginNamespace);
     ASSERT(creator && "Plugin not found, are the plugin name, version, and namespace correct?", ErrorCode::kUNSUPPORTED_NODE);

@@ -94,8 +94,10 @@ public:
             + "::" + std::string{pluginCreator->getPluginName()} + " version "
             + std::string{pluginCreator->getPluginVersion()};
 
+        printf("find registryList<<<<<<<<<<<<<< 1\n");
         if (mRegistryList.find(pluginType) == mRegistryList.end())
         {
+            printf("find registryList<<<<<<<<<<<<<< 2\n");
             bool status = getPluginRegistry()->registerCreator(*pluginCreator, libNamespace);
             if (status)
             {
@@ -110,9 +112,10 @@ public:
         }
         else
         {
+            printf("find registryList<<<<<<<<<<<<<< 3\n");
             verboseMsg = "Plugin creator already registered - " + pluginType;
         }
-
+        printf("find registryList<<<<<<<<<<<<<< 4\n");
         if (logger)
         {
             if (!errorMsg.empty())
@@ -124,6 +127,7 @@ public:
                 nvinfer1::plugin::gLogger->log(ILogger::Severity::kVERBOSE, verboseMsg.c_str());
             }
         }
+        printf("VerboseMsg: %s \n",verboseMsg.c_str());
     }
 
     ~PluginCreatorRegistry()
