@@ -4478,7 +4478,7 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
     } else {
         bias_weights = ShapedWeights::empty(kernel_weights.type);
     }
-    int out_channel,in_channel,kernel_H,kernel_W,deformable_group,dilation,groups,padding,stride;
+    int out_channel,in_channel,kernel_H,kernel_W,deformable_group,groups;
     out_channel = kernel_weights.shape.d[0];
     in_channel = kernel_weights.shape.d[1];
     kernel_H = kernel_weights.shape.d[2];
@@ -4486,11 +4486,11 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
 
     OnnxAttrs attrs(node, ctx);
     deformable_group = attrs.get<int>("deformable_group", 1);
-    dilation = attrs.get<int>("dilation", 1);
+    int dilation = attrs.get<std::vector<int>>("dilation", std::vector<int>{}).at(0);
     groups = attrs.get<int>("groups", 1);
-    padding = attrs.get<int>("padding", 1);
-    stride = attrs.get<int>("stride", 1);
-    stride = 1;
+    int padding = attrs.get<std::vector<int>>("padding", std::vector<int>{}).at(0);
+    int stride = attrs.get<std::vector<int>>("stride", std::vector<int>{}).at(0);
+    //stride = 1;
 
     const std::string pluginName = "DCNv2";
     const std::string pluginVersion = "001";

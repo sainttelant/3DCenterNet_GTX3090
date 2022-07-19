@@ -134,22 +134,29 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
 
 
         // use config to determine which mode ultilized
-       /*  if (runMode== RUN_MODE::INT8)
+        if (runMode== RUN_MODE::INT8)
         {
             //nvinfer1::IInt8Calibrator* calibrator;
             std::cout <<"setInt8Mode"<<std::endl;
             if (!builder->platformHasFastInt8())
+            {
                 std::cout << "Notice: the platform do not has fast for int8" << std::endl;
-            builder->setInt8Mode(true);
-            builder->setInt8Calibrator(calibrator);
+            }  
         }
         else if (runMode == RUN_MODE::FLOAT16)
         {
             std::cout <<"setFp16Mode"<<std::endl;
             if (!builder->platformHasFastFp16())
                 std::cout << "Notice: the platform do not has fast for fp16" << std::endl;
-            builder->setFp16Mode(true);
-        } */
+          
+        }
+        else if (runMode == RUN_MODE::FLOAT32)
+        {
+            std::cout <<"setFp32Mode"<<std::endl;
+            if (!builder->platformHasTf32())
+                std::cout << "Notice: the platform do not has fast for fp16" << std::endl;
+        
+        };
         // config input shape
 
         std::cout << "Begin building engine..." << std::endl;
