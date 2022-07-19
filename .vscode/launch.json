@@ -9,9 +9,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/buildEngine",
-            "args": ["-i model/ddd_3dop.onnx -o model/ddd_3dop.engine"],
+            "program":"${workspaceRoot}/runDet",
+            //"args": ["-i"," model/ddd_3dop.onnx", "-o", "model/ddd_3dop.engine"],
+            "args":["-e","model/ddd_3dop.engine", "-i","000292.png"],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "/home/xuewei/tensort-3D/",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -27,6 +29,7 @@
                     "ignoreFailures": true
                 }
             ]
+            ,"preLaunchTask": "3Dbuild"
         }
 
     ]

@@ -63,4 +63,4 @@ model.cuda()
 # input = torch.zeros([1, 3, 512, 512]).cuda()
 input = torch.zeros([1, 3, 384, 1280]).cuda()
 onnx.export(model, input, "../models/ddd_3dop.onnx", verbose=True,
-            operator_export_type=OperatorExportTypes.ONNX.ONNX_ATEN_FALLBACK)          
+            operator_export_type=OperatorExportTypes.,enable_onnx_checker=False)          

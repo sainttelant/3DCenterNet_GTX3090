@@ -4463,7 +4463,7 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
 {
     ASSERT(inputs.at(0).is_tensor(),  ErrorCode::kUNSUPPORTED_NODE); // input
     ASSERT(inputs.at(1).is_tensor(), ErrorCode::kUNSUPPORTED_NODE); // offset
-    ASSERT(inputs.at(2).is_weights(), ErrorCode::kUNSUPPORTED_NODE); // mask
+    ASSERT(inputs.at(2).is_tensor(), ErrorCode::kUNSUPPORTED_NODE); // mask
     ASSERT(inputs.at(3).is_weights(), ErrorCode::kUNSUPPORTED_NODE); // weight
 
     std::vector<nvinfer1::ITensor*> tensors {&inputs.at(0).tensor(), &inputs.at(1).tensor(), &inputs.at(2).tensor()};
@@ -4490,9 +4490,10 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
     groups = attrs.get("groups", 1);
     padding = attrs.get("padding", 1);
     stride = attrs.get("stride", 1);
+    stride = 1;
 
     const std::string pluginName = "DCNv2";
-    const std::string pluginVersion = "1";
+    const std::string pluginVersion = "001";
     std::vector<nvinfer1::PluginField> f;
     f.emplace_back("in_channel", &in_channel, nvinfer1::PluginFieldType::kINT32, 1);
     f.emplace_back("out_channel", &out_channel, nvinfer1::PluginFieldType::kINT32, 1);

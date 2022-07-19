@@ -25,40 +25,11 @@ namespace ctdet
             mContext(nullptr),
             mEngine(nullptr),
             mRunTime(nullptr),
-           
             runMode(mode),
             runIters(0)   
     {
 
-        //REGISTER_TENSORRT_PLUGIN(DCNv2PluginCreator);
-        // initLib is corresponding to register in the following code .
-        //bool checkplugin = initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
-        //printf("checkplugin:%d \n", checkplugin);
-        // get creater
-            // Get list of all available plugin creators
-       /*  int numCreators = 0;
-        nvinfer1::IPluginCreator* const* tmpList = getPluginRegistry()->getPluginCreatorList(&numCreators);
-        printf("numcreators:%d, tmpList:%d \n",numCreators, tmpList);
-        for (int k = 0; k < numCreators; ++k)
-        {
-            if (!tmpList[k])
-            {
-                std::cout << "Plugin Creator for plugin " << k << " is a nullptr." << std::endl;
-                continue;
-            }
-            std::string pluginName = tmpList[k]->getPluginName();
-            printf("creator's name:%s \n",pluginName.c_str());
-            //mPluginRegistry[pluginName] = tmpList[k];
-        }
-        std::string pluginname = "DCNv2";
-        std::string version = "001";
-
-        auto creator = getPluginRegistry()->getPluginCreator(pluginname.c_str(),version.c_str()); */
-        //const PluginFieldCollection* pluginFC = creator->getFieldNames();
-        //PluginFieldCollection*plugindata = parseAndFillFields(pluginFC,layfileds);
-
-
-        
+     
         memset(&mParams,0,sizeof(mParams));
          mParams.onnxFileName = onnxFile;
          //mParams.dataDirs = 
@@ -135,24 +106,25 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
 
         std::cout<<"wilson init ctdet begin<<<<<<<<<<<2 \n"<<std::endl;
 
-        ASSERT(network->getNbInputs() == 1);
+        //ASSERT(network->getNbInputs() == 1);
         mInputDims = network->getInput(0)->getDimensions();
-        ASSERT(mInputDims.nbDims == 4);
+       // ASSERT(mInputDims.nbDims == 4);
 
-        ASSERT(network->getNbOutputs() == 1);
+       // ASSERT(network->getNbOutputs() == 1);
         mOutputDims = network->getOutput(0)->getDimensions();
-        ASSERT(mOutputDims.nbDims == 2);   
+       // ASSERT(mOutputDims.nbDims == 2);   
 
         std::cout<<"wilson init ctdet begin<<<<<<<<<<<3 \n"<<std::endl;
         //auto parser = nvonnxparser::createParser(*network, sample::gLogger);
-        if (!parser->parseFromFile(onnxFile.c_str(), verbosity))
+      /*   std::string files = "/home/xuewei/tensort-3D/model/ddd_3dop.onnx";
+        if (!parser->parseFromFile(files.c_str(), verbosity))
         {
             std::string msg("failed to parse onnx file");
             sample::gLogger.log(nvinfer1::ILogger::Severity::kERROR, msg.c_str());
             exit(EXIT_FAILURE);
         }
 
-        std::cout<<"wilson init ctdet begin<<<<<<<<<<<4 \n"<<std::endl;
+        std::cout<<"wilson init ctdet begin<<<<<<<<<<<4 \n"<<std::endl; */
 
         builder->setMaxBatchSize(maxBatchSize);
        // builder->setMaxWorkspaceSize(1 << 30);// 1G
@@ -201,9 +173,9 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
         // Serialize the engine, then close everything down.
         modelStream = engine->serialize();
         engine->destroy();
-        network->destroy();
-        builder->destroy();
-        parser->destroy();
+        //network->destroy();
+        //builder->destroy();
+        //parser->destroy();
         assert(modelStream != nullptr);
         mRunTime = nvinfer1::createInferRuntime(sample::gLogger);
         assert(mRunTime != nullptr);
@@ -252,7 +224,7 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
         samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
     }
     std::cout<<"wilson  constructNetwork<<<<<<<<<<<1.3 \n"<<std::endl;
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
+    //samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
     std::cout<<"wilson  constructNetwork<<<<<<<<<<<2 \n"<<std::endl;
     return true;
 }
@@ -269,7 +241,7 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
     {
         using namespace std;
         fstream file;
-
+        initLibNvInferPlugins(&sample::gLogger.getTRTLogger(),"");
         file.open(engineFile,ios::binary | ios::in);
         if(!file.is_open())
         {
@@ -285,9 +257,16 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
         file.close();
 
         std::cout << "deserializing" << std::endl;
-        mRunTime = nvinfer1::createInferRuntime(sample::gLogger);
-        assert(mRunTime != nullptr);
-       // mEngine= mRunTime->deserializeCudaEngine(data.get(), length, mPlugins);
+        IRuntime* infer = nvinfer1::createInferRuntime(sample::gLogger);
+        if (mParams.dlaCore >= 0)
+        {
+            infer->setDLACore(mParams.dlaCore);
+        }
+        mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+            infer->deserializeCudaEngine(data.get(), length, nullptr), samplesCommon::InferDeleter());
+
+        infer->destroy();
+        //sample::gLogInfo << "TRT Engine loaded from: " << mParams.loadEngine << std::endl;
         assert(mEngine != nullptr);
         InitEngine();
     }

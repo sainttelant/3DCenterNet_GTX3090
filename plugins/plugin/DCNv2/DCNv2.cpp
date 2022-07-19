@@ -113,7 +113,7 @@ bool DCNv2Plugin::supportsFormatCombination  (int pos, const nvinfer1::PluginTen
   //assert(nbInputs == 3);
   assert(nbOutputs == 1);
   assert(pos < (nbInputs + nbOutputs));
-  return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == TensorFormat::kCHW32);
+  return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == TensorFormat::kLINEAR);
 }
 
 nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions  (int outputIndex,
@@ -248,7 +248,7 @@ const char* DCNv2PluginCreator::getPluginName()const noexcept
 
 const char* DCNv2PluginCreator::getPluginVersion()const noexcept
 {
-    return "1";
+    return "001";
 }
 
 const PluginFieldCollection* DCNv2PluginCreator::getFieldNames () noexcept
