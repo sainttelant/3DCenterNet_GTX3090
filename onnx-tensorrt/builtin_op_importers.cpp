@@ -4485,11 +4485,11 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
     kernel_W = kernel_weights.shape.d[3];
 
     OnnxAttrs attrs(node, ctx);
-    deformable_group = attrs.get("deformable_group", 1);
-    dilation = attrs.get("dilation", 1);
-    groups = attrs.get("groups", 1);
-    padding = attrs.get("padding", 1);
-    stride = attrs.get("stride", 1);
+    deformable_group = attrs.get<int>("deformable_group", 1);
+    dilation = attrs.get<int>("dilation", 1);
+    groups = attrs.get<int>("groups", 1);
+    padding = attrs.get<int>("padding", 1);
+    stride = attrs.get<int>("stride", 1);
     stride = 1;
 
     const std::string pluginName = "DCNv2";
@@ -4512,7 +4512,7 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
     ASSERT(plugin != nullptr && "InstanceNormalization plugin was not found in the plugin registry!",
         ErrorCode::kUNSUPPORTED_NODE);
 
-    RETURN_FIRST_OUTPUT(ctx->network()->addPluginV2(tensors.data() ,2, *plugin));
+    RETURN_FIRST_OUTPUT(ctx->network()->addPluginV2(tensors.data() ,3, *plugin));
 
     
 }
