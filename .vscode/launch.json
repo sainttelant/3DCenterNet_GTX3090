@@ -8,7 +8,7 @@
             "name": "(gdb) 启动",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/buildEngine",
+            //"program": "${workspaceFolder}/buildEngine",
             "program":"${workspaceRoot}/runDet",
             //"args": ["-i"," model/ddd_3dop.onnx", "-o", "model/ddd_3dop.engine"],
             "args":["-e","model/ddd_3dop.engine", "-i","000292.png"],
