@@ -110,7 +110,7 @@ void DCNv2Plugin::configurePlugin (const nvinfer1::DynamicPluginTensorDesc* in, 
 }
 
 bool DCNv2Plugin::supportsFormatCombination  (int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept {
-  //assert(nbInputs == 3);
+  assert(nbInputs == 3);
   assert(nbOutputs == 1);
   assert(pos < (nbInputs + nbOutputs));
   return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == TensorFormat::kLINEAR);
@@ -121,7 +121,7 @@ nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions  (int outputIndex,
                                                      int nbInputs,
                                                      nvinfer1::IExprBuilder& exprBuilder)noexcept {
   assert(outputIndex == 0);
-  //assert(nbInputs == 3);
+  assert(nbInputs == 3);
   nvinfer1::DimsExprs output(inputs[0]);
   auto input_h = output.d[2]->getConstantValue();
   auto input_w = output.d[3]->getConstantValue();

@@ -54,20 +54,20 @@ int main(int argc, const char** argv){
 
         // modified by feng for debug
         std::cout << "num_det: " << outputData[0] <<std::endl;
-        // for(int i = 0; i < num_det; i++)
-        // {
-            // std::cout << "number: " <<i+1<<std::endl;
-            // std::cout << "classID: " << result[i].classId <<std::endl;
-            // std::cout << "bbox: " << result[i].bbox.x1<<" "<<result[i].bbox.y1<<" "<<result[i].bbox.x2<<" "<<result[i].bbox.y2<<std::endl;
-            // std::cout << "bbox_3d: " << result[i].bbox_3d.x1<<" "<<result[i].bbox_3d.y1<<" "<<result[i].bbox_3d.x2<<" "<<result[i].bbox_3d.y2<<" "<<result[i].bbox_3d.x3<<" "<<result[i].bbox_3d.y3<<" "<<result[i].bbox_3d.x4<<" "<<result[i].bbox_3d.y4<<" "<<result[i].bbox_3d.x5<<" "<<result[i].bbox_3d.y5<<" "<<result[i].bbox_3d.x6<<" "<<result[i].bbox_3d.y6<<" "<<result[i].bbox_3d.x7<<" "<<result[i].bbox_3d.y7<<" "<<result[i].bbox_3d.x8<<" "<<result[i].bbox_3d.y8<<std::endl;
-            // std::cout << "marks: " << result[i].marks[0].x<<" "<<result[i].marks[0].y<<" "<<result[i].marks[1].x<<" "<<result[i].marks[1].y<<" "<<result[i].marks[2].x<<" "<<result[i].marks[2].y<<" "<<result[i].marks[3].x<<" "<<result[i].marks[3].y<<" "<<result[i].marks[4].x<<" "<<result[i].marks[4].y<<std::endl;
-            // std::cout << "probability: " << result[i].prob <<std::endl;
-            // std::cout << "size: " << result[i].size3d.h <<" "<<result[i].size3d.w<<" "<<result[i].size3d.l<<std::endl;
-            // std::cout << "dep: " << result[i].dep<<std::endl;
-            // std::cout << "rot: " << result[i].rot.ang1 <<" "<<result[i].rot.ang2<<" "<<result[i].rot.ang3<<" "<<result[i].rot.ang4<<" "<<result[i].rot.ang5<<" "<<result[i].rot.ang6<<" "<<result[i].rot.ang7<<" "<<result[i].rot.ang8<<std::endl;
-            // std::cout << "rota_y: " << result[i].rota_y<<std::endl;
-            // std::cout << std::endl;
-        // }
+         for(int i = 0; i < num_det; i++)
+         {
+             std::cout << "number: " <<i+1<<std::endl;
+             std::cout << "classID: " << result[i].classId <<std::endl;
+             std::cout << "bbox: " << result[i].bbox.x1<<" "<<result[i].bbox.y1<<" "<<result[i].bbox.x2<<" "<<result[i].bbox.y2<<std::endl;
+             std::cout << "bbox_3d: " << result[i].bbox_3d.x1<<" "<<result[i].bbox_3d.y1<<" "<<result[i].bbox_3d.x2<<" "<<result[i].bbox_3d.y2<<" "<<result[i].bbox_3d.x3<<" "<<result[i].bbox_3d.y3<<" "<<result[i].bbox_3d.x4<<" "<<result[i].bbox_3d.y4<<" "<<result[i].bbox_3d.x5<<" "<<result[i].bbox_3d.y5<<" "<<result[i].bbox_3d.x6<<" "<<result[i].bbox_3d.y6<<" "<<result[i].bbox_3d.x7<<" "<<result[i].bbox_3d.y7<<" "<<result[i].bbox_3d.x8<<" "<<result[i].bbox_3d.y8<<std::endl;
+             std::cout << "marks: " << result[i].marks[0].x<<" "<<result[i].marks[0].y<<" "<<result[i].marks[1].x<<" "<<result[i].marks[1].y<<" "<<result[i].marks[2].x<<" "<<result[i].marks[2].y<<" "<<result[i].marks[3].x<<" "<<result[i].marks[3].y<<" "<<result[i].marks[4].x<<" "<<result[i].marks[4].y<<std::endl;
+             std::cout << "probability: " << result[i].prob <<std::endl;
+             std::cout << "size: " << result[i].size3d.h <<" "<<result[i].size3d.w<<" "<<result[i].size3d.l<<std::endl;
+             std::cout << "dep: " << result[i].dep<<std::endl;
+             std::cout << "rot: " << result[i].rot.ang1 <<" "<<result[i].rot.ang2<<" "<<result[i].rot.ang3<<" "<<result[i].rot.ang4<<" "<<result[i].rot.ang5<<" "<<result[i].rot.ang6<<" "<<result[i].rot.ang7<<" "<<result[i].rot.ang8<<std::endl;
+             std::cout << "rota_y: " << result[i].rota_y<<std::endl;
+             std::cout << std::endl;
+         }
         drawImg(result,img,color,net.forwardFace);
 
         cv::imshow("result",img);

@@ -153,7 +153,7 @@ file(GLOB ALL_SRCS
 
 
 
-message(STATUS "ALL_SRCS:${ALL_SRCS} \n")
+#message(STATUS "ALL_SRCS:${ALL_SRCS} \n")
 
 
 

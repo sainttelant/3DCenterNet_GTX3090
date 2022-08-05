@@ -4489,8 +4489,13 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
     int dilation = attrs.get<std::vector<int>>("dilation", std::vector<int>{}).at(0);
     groups = attrs.get<int>("groups", 1);
     int padding = attrs.get<std::vector<int>>("padding", std::vector<int>{}).at(0);
+    std::vector<int> v_stride = attrs.get<std::vector<int>>("stride", std::vector<int>{});
+    
     int stride = attrs.get<std::vector<int>>("stride", std::vector<int>{}).at(0);
-    //stride = 1;
+
+    //int padding = attrs.get<int>("padding",1);
+    //int stride = attrs.get<int>("stride",1);
+
 
     const std::string pluginName = "DCNv2";
     const std::string pluginVersion = "001";
@@ -4509,11 +4514,10 @@ DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
 
     const auto plugin = createPlugin(getNodeName(node), importPluginCreator(pluginName, pluginVersion), f);
 
-    ASSERT(plugin != nullptr && "InstanceNormalization plugin was not found in the plugin registry!",
+    ASSERT(plugin != nullptr && "DcnV2 plugin was not found in the plugin registry!",
         ErrorCode::kUNSUPPORTED_NODE);
 
     RETURN_FIRST_OUTPUT(ctx->network()->addPluginV2(tensors.data() ,3, *plugin));
-
     
 }
 

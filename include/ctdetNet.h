@@ -170,9 +170,6 @@ namespace ctdet
 
         // the following IPluginFactory has been removed from tensorrt8, use XX to subsitude.
         nvonnxparser::IPluginFactory *mPlugins;
-
-
-
         std::vector<void*> mCudaBuffers;
         std::vector<int64_t> mBindBufferSizes;
         void * cudaOutputBuffer;

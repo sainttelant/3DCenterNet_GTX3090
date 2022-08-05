@@ -278,7 +278,8 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
         InitEngine();
     }
 
-    void ctdetNet::InitEngine() {
+    void ctdetNet::InitEngine() 
+    {
         const int maxBatchSize = 1;
         mContext = mEngine->createExecutionContext();
         assert(mContext != nullptr);
