@@ -31,4 +31,4 @@ include_directories(
    ${Protobuf_INCLUDE_DIR}
 )
 
-add_subdirectory(onnx)
+#add_subdirectory(onnx)
