@@ -153,8 +153,8 @@ int DCNv2Plugin::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
     assert(b == 1);
     int h = input_dims.d[2];
     int w = input_dims.d[3];
-    assert(h == _input_dims.d[2]);
-    assert(w == _input_dims.d[3]);
+    //assert(h == _input_dims.d[2]);
+    //assert(w == _input_dims.d[3]);
 
     int height_out = (h + 2 * _padding - (_dilation * (_kernel_H - 1) + 1)) / _stride + 1;
     int width_out = (w + 2 * _padding - (_dilation * (_kernel_W - 1) + 1)) / _stride + 1;
