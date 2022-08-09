@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #ifndef TRT_SAMPLE_DEVICE_H
 #define TRT_SAMPLE_DEVICE_H
 
-#include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <iostream>
@@ -40,7 +39,11 @@ class TrtCudaEvent;
 namespace
 {
 
+#if CUDA_VERSION < 10000
+void cudaSleep(cudaStream_t stream, cudaError_t status, void* sleep)
+#else
 void cudaSleep(void* sleep)
+#endif
 {
     std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(*static_cast<int*>(sleep)));
 }
@@ -86,7 +89,11 @@ public:
 
     void sleep(int* ms)
     {
+#if CUDA_VERSION < 10000
+        cudaCheck(cudaStreamAddCallback(mStream, cudaSleep, ms, 0));
+#else
         cudaCheck(cudaLaunchHostFunc(mStream, cudaSleep, ms));
+#endif
     }
 
 private:
@@ -102,7 +109,7 @@ class TrtCudaEvent
 public:
     explicit TrtCudaEvent(bool blocking = true)
     {
-        const uint32_t flags = blocking ? cudaEventBlockingSync : cudaEventDefault;
+        const unsigned int flags = blocking ? cudaEventBlockingSync : cudaEventDefault;
         cudaCheck(cudaEventCreateWithFlags(&mEvent, flags));
     }
 
@@ -178,12 +185,13 @@ public:
 
     void beginCapture(TrtCudaStream& stream)
     {
-        cudaCheck(cudaStreamBeginCapture(stream.get(), cudaStreamCaptureModeThreadLocal));
+        cudaCheck(cudaGraphCreate(&mGraph, 0));
+        cudaCheck(cudaStreamBeginCapture(stream.get(), cudaStreamCaptureModeGlobal));
     }
 
-    bool launch(TrtCudaStream& stream)
+    void launch(TrtCudaStream& stream)
     {
-        return cudaGraphLaunch(mGraphExec, stream.get()) == cudaSuccess;
+        cudaCheck(cudaGraphLaunch(mGraphExec, stream.get()));
     }
 
     void endCapture(TrtCudaStream& stream)
@@ -191,16 +199,6 @@ public:
         cudaCheck(cudaStreamEndCapture(stream.get(), &mGraph));
         cudaCheck(cudaGraphInstantiate(&mGraphExec, mGraph, nullptr, nullptr, 0));
         cudaCheck(cudaGraphDestroy(mGraph));
-    }
-
-    void endCaptureOnError(TrtCudaStream& stream)
-    {
-        const auto ret = cudaStreamEndCapture(stream.get(), &mGraph);
-        assert(ret == cudaErrorStreamCaptureInvalidated);
-        assert(mGraph == nullptr);
-        // Clean up the above CUDA error.
-        cudaGetLastError();
-        sample::gLogWarning << "The CUDA graph capture on the stream has failed." << std::endl;
     }
 
 private:
@@ -288,14 +286,6 @@ struct DeviceDeallocator
     }
 };
 
-struct ManagedAllocator
-{
-    void operator()(void** ptr, size_t size)
-    {
-        cudaCheck(cudaMallocManaged(ptr, size));
-    }
-};
-
 struct HostAllocator
 {
     void operator()(void** ptr, size_t size)
@@ -313,7 +303,6 @@ struct HostDeallocator
 };
 
 using TrtDeviceBuffer = TrtCudaBuffer<DeviceAllocator, DeviceDeallocator>;
-using TrtManagedBuffer = TrtCudaBuffer<ManagedAllocator, DeviceDeallocator>;
 
 using TrtHostBuffer = TrtCudaBuffer<HostAllocator, HostDeallocator>;
 
@@ -321,52 +310,7 @@ using TrtHostBuffer = TrtCudaBuffer<HostAllocator, HostDeallocator>;
 //! \class MirroredBuffer
 //! \brief Coupled host and device buffers
 //!
-class IMirroredBuffer
-{
-public:
-    //!
-    //! Allocate memory for the mirrored buffer give the size
-    //! of the allocation.
-    //!
-    virtual void allocate(size_t size) = 0;
-
-    //!
-    //! Get the pointer to the device side buffer.
-    //!
-    //! \return pointer to device memory or nullptr if uninitialized.
-    //!
-    virtual void* getDeviceBuffer() const = 0;
-
-    //!
-    //! Get the pointer to the host side buffer.
-    //!
-    //! \return pointer to host memory or nullptr if uninitialized.
-    //!
-    virtual void* getHostBuffer() const = 0;
-
-    //!
-    //! Copy the memory from host to device.
-    //!
-    virtual void hostToDevice(TrtCudaStream& stream) = 0;
-
-    //!
-    //! Copy the memory from device to host.
-    //!
-    virtual void deviceToHost(TrtCudaStream& stream) = 0;
-
-    //!
-    //! Interface to get the size of the memory
-    //!
-    //! \return the size of memory allocated.
-    //!
-    virtual size_t getSize() const = 0;
-
-}; // class IMirroredBuffer
-
-//!
-//! Class to have a seperate memory buffer for discrete device and host allocations.
-//!
-class DiscreteMirroredBuffer : public IMirroredBuffer
+class MirroredBuffer
 {
 public:
     void allocate(size_t size)
@@ -405,70 +349,7 @@ private:
     size_t mSize{0};
     TrtHostBuffer mHostBuffer;
     TrtDeviceBuffer mDeviceBuffer;
-}; // class DiscreteMirroredBuffer
-
-//!
-//! Class to have a unified memory buffer for embedded devices.
-//!
-class UnifiedMirroredBuffer : public IMirroredBuffer
-{
-public:
-    void allocate(size_t size)
-    {
-        mSize = size;
-        mBuffer.allocate(size);
-    }
-
-    void* getDeviceBuffer() const
-    {
-        return mBuffer.get();
-    }
-
-    void* getHostBuffer() const
-    {
-        return mBuffer.get();
-    }
-
-    void hostToDevice(TrtCudaStream& stream)
-    {
-        // Does nothing since we are using unified memory.
-    }
-
-    void deviceToHost(TrtCudaStream& stream)
-    {
-        // Does nothing since we are using unified memory.
-    }
-
-    size_t getSize() const
-    {
-        return mSize;
-    }
-
-private:
-    size_t mSize{0};
-    TrtManagedBuffer mBuffer;
-}; // class UnifiedMirroredBuffer
-
-inline void setCudaDevice(int device, std::ostream& os)
-{
-    cudaCheck(cudaSetDevice(device));
-
-    cudaDeviceProp properties;
-    cudaCheck(cudaGetDeviceProperties(&properties, device));
-
-// clang-format off
-    os << "=== Device Information ===" << std::endl;
-    os << "Selected Device: "      << properties.name                                               << std::endl;
-    os << "Compute Capability: "   << properties.major << "." << properties.minor                   << std::endl;
-    os << "SMs: "                  << properties.multiProcessorCount                                << std::endl;
-    os << "Compute Clock Rate: "   << properties.clockRate / 1000000.0F << " GHz"                   << std::endl;
-    os << "Device Global Memory: " << (properties.totalGlobalMem >> 20) << " MiB"                   << std::endl;
-    os << "Shared Memory per SM: " << (properties.sharedMemPerMultiprocessor >> 10) << " KiB"       << std::endl;
-    os << "Memory Bus Width: "     << properties.memoryBusWidth << " bits"
-                        << " (ECC " << (properties.ECCEnabled != 0 ? "enabled" : "disabled") << ")" << std::endl;
-    os << "Memory Clock Rate: "    << properties.memoryClockRate / 1000000.0F << " GHz"             << std::endl;
-    // clang-format on
-}
+};
 
 } // namespace sample
 

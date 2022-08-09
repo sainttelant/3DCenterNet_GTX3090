@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #ifndef NV_INFER_PLUGIN_UTILS_H
 #define NV_INFER_PLUGIN_UTILS_H
-
 #include "NvInferRuntimeCommon.h"
 
 //!
@@ -28,31 +27,58 @@
 
 namespace nvinfer1
 {
+//!
+//! \enum PluginType
+//!
+//! \brief The type values for the various plugins.
+//!
+//! \see INvPlugin::getPluginType()
+//!
+enum class PluginType : int
+{
+    kFASTERRCNN = 0,         //!< FasterRCNN fused plugin (RPN + ROI pooling).
+    kNORMALIZE = 1,          //!< Normalize plugin.
+    kPERMUTE = 2,            //!< Permute plugin.
+    kPRIORBOX = 3,           //!< PriorBox plugin.
+    kSSDDETECTIONOUTPUT = 4, //!< SSD DetectionOutput plugin.
+    kCONCAT = 5,             //!< Concat plugin.
+    kPRELU = 6,              //!< YOLO PReLU Plugin.
+    kYOLOREORG = 7,          //!< YOLO Reorg Plugin.
+    kYOLOREGION = 8,         //!< YOLO Region Plugin.
+    kANCHORGENERATOR = 9,    //!< SSD Grid Anchor Generator.
+};
+
+//!< Maximum number of elements in PluginType enum. \see PluginType
+template <>
+constexpr inline int EnumMax<PluginType>()
+{
+    return 10;
+}
+
 namespace plugin
 {
 
 //!
 //! \brief The Permute plugin layer permutes the input tensor by changing the memory order of the data.
-//! Quadruple defines a structure that contains an array of 4 integers. They can represent the permute orders or the
-//! strides in each dimension.
+//! Quadruple defines a structure that contains an array of 4 integers. They can represent the permute orders or the strides in each dimension.
 //!
 typedef struct
 {
-    int32_t data[4];
+    int data[4];
 } Quadruple;
 
+
 //!
-//! \brief The PriorBox plugin layer generates the prior boxes of designated sizes and aspect ratios across all
-//! dimensions (H x W). PriorBoxParameters defines a set of parameters for creating the PriorBox plugin layer. It
-//! contains:
+//! \brief The PriorBox plugin layer generates the prior boxes of designated sizes and aspect ratios across all dimensions (H x W).
+//! PriorBoxParameters defines a set of parameters for creating the PriorBox plugin layer.
+//! It contains:
 //! \param minSize Minimum box size in pixels. Can not be nullptr.
 //! \param maxSize Maximum box size in pixels. Can be nullptr.
 //! \param aspectRatios Aspect ratios of the boxes. Can be nullptr.
 //! \param numMinSize Number of elements in minSize. Must be larger than 0.
 //! \param numMaxSize Number of elements in maxSize. Can be 0 or same as numMinSize.
 //! \param numAspectRatios Number of elements in aspectRatios. Can be 0.
-//! \param flip If true, will flip each aspect ratio. For example, if there is an aspect ratio "r", the aspect ratio
-//! "1.0/r" will be generated as well.
+//! \param flip If true, will flip each aspect ratio. For example, if there is aspect ratio "r", the aspect ratio "1.0/r" will be generated as well.
 //! \param clip If true, will clip the prior so that it is within [0,1].
 //! \param variance Variance for adjusting the prior boxes.
 //! \param imgH Image height. If 0, then the H dimension of the data tensor will be used.
@@ -64,11 +90,11 @@ typedef struct
 struct PriorBoxParameters
 {
     float *minSize, *maxSize, *aspectRatios;
-    int32_t numMinSize, numMaxSize, numAspectRatios;
+    int numMinSize, numMaxSize, numAspectRatios;
     bool flip;
     bool clip;
     float variance[4];
-    int32_t imgH, imgW;
+    int imgH, imgW;
     float stepH, stepW;
     float offset;
 };
@@ -78,8 +104,7 @@ struct PriorBoxParameters
 //! It contains:
 //! \param poolingH Height of the output in pixels after ROI pooling on feature map.
 //! \param poolingW Width of the output in pixels after ROI pooling on feature map.
-//! \param featureStride Feature stride; ratio of input image size to feature map size. Assuming that max pooling layers
-//! in the neural network use square filters.
+//! \param featureStride Feature stride; ratio of input image size to feature map size. Assuming that max pooling layers in neural network use square filters.
 //! \param preNmsTop Number of proposals to keep before applying NMS.
 //! \param nmsMaxOut Number of remaining proposals after applying NMS.
 //! \param anchorsRatioCount Number of anchor box ratios.
@@ -90,13 +115,13 @@ struct PriorBoxParameters
 //!
 struct RPROIParams
 {
-    int32_t poolingH;
-    int32_t poolingW;
-    int32_t featureStride;
-    int32_t preNmsTop;
-    int32_t nmsMaxOut;
-    int32_t anchorsRatioCount;
-    int32_t anchorsScaleCount;
+    int poolingH;
+    int poolingW;
+    int featureStride;
+    int preNmsTop;
+    int nmsMaxOut;
+    int anchorsRatioCount;
+    int anchorsScaleCount;
     float iouThreshold;
     float minBoxSize;
     float spatialScale;
@@ -119,7 +144,7 @@ struct GridAnchorParameters
 {
     float minSize, maxSize;
     float* aspectRatios;
-    int32_t numAspectRatios, H, W;
+    int numAspectRatios, H, W;
     float variance[4];
 };
 
@@ -127,7 +152,7 @@ struct GridAnchorParameters
 //! \enum CodeTypeSSD
 //! \brief The type of encoding used for decoding the bounding boxes and loc_data.
 //!
-enum class CodeTypeSSD : int32_t
+enum class CodeTypeSSD : int
 {
     CORNER = 0,      //!< Use box corners.
     CENTER_SIZE = 1, //!< Use box centers and size.
@@ -137,7 +162,7 @@ enum class CodeTypeSSD : int32_t
 
 //!
 //! \brief The DetectionOutput plugin layer generates the detection output based on location and confidence predictions by doing non maximum suppression.
-//! This plugin first decodes the bounding boxes based on the anchors generated. It then performs non_max_suppression on the decoded bounding boxes.
+//! This plugin first decodes the bounding boxes based on the anchors generated. It then performs non_max_suppression on the decoded bouding boxes.
 //! DetectionOutputParameters defines a set of parameters for creating the DetectionOutput plugin layer.
 //! It contains:
 //! \param shareLocation If true, bounding box are shared among different classes.
@@ -152,36 +177,18 @@ enum class CodeTypeSSD : int32_t
 //! \param inputOrder Specifies the order of inputs {loc_data, conf_data, priorbox_data}.
 //! \param confSigmoid Set to true to calculate sigmoid of confidence scores.
 //! \param isNormalized Set to true if bounding box data is normalized by the network.
-//! \param isBatchAgnostic Defaults to true. Set to false if prior boxes are unique per batch
 //!
 struct DetectionOutputParameters
 {
     bool shareLocation, varianceEncodedInTarget;
-    int32_t backgroundLabelId, numClasses, topK, keepTopK;
+    int backgroundLabelId, numClasses, topK, keepTopK;
     float confidenceThreshold, nmsThreshold;
     CodeTypeSSD codeType;
-    int32_t inputOrder[3];
+    int inputOrder[3];
     bool confSigmoid;
     bool isNormalized;
-    bool isBatchAgnostic{true};
 };
 
-//!
-//! \brief When performing yolo9000, softmaxTree is helping to do softmax on confidence scores, for element to get the precise classification through word-tree structured classification definition.
-//!
-struct softmaxTree
-{
-    int32_t* leaf;
-    int32_t n;
-    int32_t* parent;
-    int32_t* child;
-    int32_t* group;
-    char** name;
-
-    int32_t groups;
-    int32_t* groupSize;
-    int32_t* groupOffset;
-};
 
 //!
 //! \brief The Region plugin layer performs region proposal calculation: generate 5 bounding boxes per cell (for yolo9000, generate 3 bounding boxes per cell).
@@ -190,14 +197,29 @@ struct softmaxTree
 //! RegionParameters defines a set of parameters for creating the Region plugin layer.
 //! \param num Number of predicted bounding box for each grid cell.
 //! \param coords Number of coordinates for a bounding box.
-//! \param classes Number of classifications to be predicted.
-//! \param smTree Helping structure to do softmax on confidence scores.
+//! \param classes Number of classfications to be predicted.
+//! \param softmaxTree When performing yolo9000, softmaxTree is helping to do softmax on confidence scores, for element to get the precise classfication through word-tree structured classfication definition.
+//! \deprecated. This plugin is superseded by createRegionPlugin()
 //!
-struct RegionParameters
+TRT_DEPRECATED typedef struct
 {
-    int32_t num;
-    int32_t coords;
-    int32_t classes;
+    int* leaf;
+    int n;
+    int* parent;
+    int* child;
+    int* group;
+    char** name;
+
+    int groups;
+    int* groupSize;
+    int* groupOffset;
+} softmaxTree; // softmax tree
+
+struct TRT_DEPRECATED RegionParameters
+{
+    int num;
+    int coords;
+    int classes;
     softmaxTree* smTree;
 };
 
@@ -221,12 +243,11 @@ struct RegionParameters
 struct NMSParameters
 {
     bool shareLocation;
-    int32_t backgroundLabelId, numClasses, topK, keepTopK;
+    int backgroundLabelId, numClasses, topK, keepTopK;
     float scoreThreshold, iouThreshold;
     bool isNormalized;
 };
 
-} // namespace plugin
-} // namespace nvinfer1
-
-#endif // NV_INFER_PLUGIN_UTILS_H
+} // end plugin namespace
+} // end nvinfer1 namespace
+#endif

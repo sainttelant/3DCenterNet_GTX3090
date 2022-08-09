@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #pragma once
@@ -88,39 +106,6 @@ public:
     bool isBool() const
     {
         return is_tensor() ? _tensor->getType() == nvinfer1::DataType::kBOOL : _weights.type == ::ONNX_NAMESPACE::TensorProto_DataType_BOOL;
-    }
-    std::string getName() const
-    {
-        return is_tensor() ? _tensor->getName() : _weights.getName();
-    }
-    std::string getType() const
-    {
-        if (is_tensor())
-        {
-            switch(_tensor->getType())
-            {
-                case nvinfer1::DataType::kFLOAT:return "FLOAT";
-                case nvinfer1::DataType::kHALF: return "HALF";
-                case nvinfer1::DataType::kINT8: return "INT8";
-                case nvinfer1::DataType::kINT32: return "INT32";
-                case nvinfer1::DataType::kBOOL: return "BOOL";
-                default: return "UNKNOWN TYPE";
-            }
-        }
-        else
-        {
-            switch(_weights.type)
-            {
-                case ::ONNX_NAMESPACE::TensorProto::DOUBLE: return "DOUBLE -> FLOAT";
-                case ::ONNX_NAMESPACE::TensorProto::FLOAT: return "FLOAT";
-                case ::ONNX_NAMESPACE::TensorProto::INT8: return "INT8";
-                case ::ONNX_NAMESPACE::TensorProto::FLOAT16: return "HALF";
-                case ::ONNX_NAMESPACE::TensorProto::BOOL: return "BOOL";
-                case ::ONNX_NAMESPACE::TensorProto::INT32: return "INT32";
-                case ::ONNX_NAMESPACE::TensorProto::INT64: return "INT64 -> INT32";
-                default: return "UNKNOWN TYPE";
-            }
-        }
     }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "checkMacrosPlugin.h"
 #include <cstdlib>
 #include <cublas_v2.h>
@@ -24,7 +23,6 @@ namespace nvinfer1
 namespace plugin
 {
 
-// This will be populated by the logger supplied by the user to initLibNvInferPlugins()
 ILogger* gLogger{};
 
 template <ILogger::Severity kSeverity>
@@ -43,12 +41,9 @@ int LogStream<kSeverity>::Buf::sync()
     return 0;
 }
 
-// These use gLogger, and therefore require initLibNvInferPlugins() to be called with a logger
-// (otherwise, it will not log)
 LogStream<ILogger::Severity::kERROR> gLogError;
 LogStream<ILogger::Severity::kWARNING> gLogWarning;
 LogStream<ILogger::Severity::kINFO> gLogInfo;
-LogStream<ILogger::Severity::kVERBOSE> gLogVerbose;
 
 // break-pointable
 void throwCudaError(const char* file, const char* function, int line, int status, const char* msg)

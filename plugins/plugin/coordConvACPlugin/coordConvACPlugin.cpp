@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,19 +56,19 @@ CoordConvACPlugin::CoordConvACPlugin(const void* data, size_t length)
     ASSERT(d == a + length);
 }
 
-int CoordConvACPlugin::getNbOutputs() const noexcept
+int CoordConvACPlugin::getNbOutputs() const
 {
     return 1;
 }
 
-int CoordConvACPlugin::initialize() noexcept
+int CoordConvACPlugin::initialize()
 {
     return STATUS_SUCCESS;
 }
 
-void CoordConvACPlugin::terminate() noexcept {}
+void CoordConvACPlugin::terminate() {}
 
-Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
     // CHW
     nvinfer1::Dims dimsOutput;
@@ -80,18 +80,18 @@ Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int n
     return dimsOutput;
 }
 
-size_t CoordConvACPlugin::getWorkspaceSize(int maxBatchSize) const noexcept
+size_t CoordConvACPlugin::getWorkspaceSize(int maxBatchSize) const
 {
     return 0;
 }
 
-size_t CoordConvACPlugin::getSerializationSize() const noexcept
+size_t CoordConvACPlugin::getSerializationSize() const
 {
     // iC, iH, iW, oC, oH, oW
     return sizeof(int) * 6;
 }
 
-void CoordConvACPlugin::serialize(void* buffer) const noexcept
+void CoordConvACPlugin::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, iC);
@@ -105,7 +105,7 @@ void CoordConvACPlugin::serialize(void* buffer) const noexcept
 
 void CoordConvACPlugin::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, nvinfer1::PluginFormat format, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, nvinfer1::PluginFormat format, int maxBatchSize)
 {
     ASSERT(nbInputs == 1);
     ASSERT(nbOutputs == 1);
@@ -121,55 +121,55 @@ void CoordConvACPlugin::configurePlugin(const Dims* inputDims, int nbInputs, con
     iType = inputTypes[0];
 }
 
-bool CoordConvACPlugin::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool CoordConvACPlugin::supportsFormat(DataType type, PluginFormat format) const
 {
-    return ((type == DataType::kFLOAT || type == DataType::kHALF) && format == PluginFormat::kLINEAR);
+    return ((type == DataType::kFLOAT || type == DataType::kHALF) && format == PluginFormat::kNCHW);
 }
 
-const char* CoordConvACPlugin::getPluginType() const noexcept
+const char* CoordConvACPlugin::getPluginType() const
 {
     return COORDCONV_AC_PLUGIN_NAME;
 }
 
-const char* CoordConvACPlugin::getPluginVersion() const noexcept
+const char* CoordConvACPlugin::getPluginVersion() const
 {
     return COORDCONV_AC_PLUGIN_VERSION;
 }
 
-void CoordConvACPlugin::destroy() noexcept
+void CoordConvACPlugin::destroy()
 {
     delete this;
 }
 
-IPluginV2Ext* CoordConvACPlugin::clone() const noexcept
+IPluginV2Ext* CoordConvACPlugin::clone() const
 {
     auto* plugin = new CoordConvACPlugin(iType, iC, iH, iW, oC, oH, oW);
     return plugin;
 }
 
-void CoordConvACPlugin::setPluginNamespace(const char* pluginNamespace) noexcept
+void CoordConvACPlugin::setPluginNamespace(const char* pluginNamespace)
 {
     mPluginNamespace = pluginNamespace;
 }
 
-const char* CoordConvACPlugin::getPluginNamespace() const noexcept
+const char* CoordConvACPlugin::getPluginNamespace() const
 {
     return mPluginNamespace;
 }
 
 nvinfer1::DataType CoordConvACPlugin::getOutputDataType(
-    int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+    int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     return inputTypes[0];
 }
 
 bool CoordConvACPlugin::isOutputBroadcastAcrossBatch(
-    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
-bool CoordConvACPlugin::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool CoordConvACPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
@@ -177,29 +177,29 @@ bool CoordConvACPlugin::canBroadcastInputAcrossBatch(int inputIndex) const noexc
 // Plugin creator
 CoordConvACPluginCreator::CoordConvACPluginCreator() {}
 
-const char* CoordConvACPluginCreator::getPluginName() const noexcept
+const char* CoordConvACPluginCreator::getPluginName() const
 {
     return COORDCONV_AC_PLUGIN_NAME;
 }
 
-const char* CoordConvACPluginCreator::getPluginVersion() const noexcept
+const char* CoordConvACPluginCreator::getPluginVersion() const
 {
     return COORDCONV_AC_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* CoordConvACPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* CoordConvACPluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2Ext* CoordConvACPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* CoordConvACPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     CoordConvACPlugin* plugin = new CoordConvACPlugin();
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }
 
-IPluginV2Ext* CoordConvACPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2Ext* CoordConvACPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     CoordConvACPlugin* plugin = new CoordConvACPlugin(serialData, serialLength);
     plugin->setPluginNamespace(mNamespace.c_str());

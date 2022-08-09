@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ __global__ void fillSBSMaskKernel(
     const uint32_t tidx = threadIdx.x;
 
     const size_t warp = tidx / 32;
+    const size_t warp_m = warp % warps_m;
     const size_t warp_n = warp / warps_m;
     const size_t lane = tidx % 32;
     const size_t col = warp_n * 16 + lane % 4 * 2;
@@ -78,7 +79,7 @@ __global__ void fillSBSMaskKernel(
     inputMaskX[(bi * xmmas_m + mi) * threads_per_cta + tidx] = mask;
 }
 
-cudaError_t convertMask(const uint32_t S, const uint32_t B, const uint32_t warps_m, const uint32_t warps_n,
+void convertMask(const uint32_t S, const uint32_t B, const uint32_t warps_m, const uint32_t warps_n,
     const uint32_t warps_k, const int* inputMaskSB, uint32_t* inputMaskX, cudaStream_t stream)
 {
     const size_t xmmas_m = (S + 16 * warps_m - 1) / (16 * warps_m);
@@ -86,7 +87,7 @@ cudaError_t convertMask(const uint32_t S, const uint32_t B, const uint32_t warps
     const size_t threads_per_cta = warps_m * warps_n * warps_k * 32;
     dim3 grid(xmmas_m, B);
     fillSBSMaskKernel<<<grid, threads_per_cta, S * sizeof(int), stream>>>(warps_m, warps_n, S, inputMaskSB, inputMaskX);
-    return cudaPeekAtLastError();
+    CHECK(cudaPeekAtLastError());
 }
 
 template <unsigned TPB>
@@ -172,7 +173,9 @@ int computeMaskIdx(cudaStream_t stream, const int S, const int B, const int* mas
         maskIdxKernel<256><<<B, 256, 0, stream>>>(S, mask, maskIdx);
     }
 
-    return cudaPeekAtLastError();
+    CHECK(cudaPeekAtLastError());
+
+    return 0;
 }
 
 template <typename T, unsigned TPB>

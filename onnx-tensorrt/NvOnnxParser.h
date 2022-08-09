@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #ifndef NV_ONNX_PARSER_H
@@ -35,6 +53,7 @@ typedef std::pair<std::vector<size_t>, bool> SubGraph_t;
 //!
 typedef std::vector<SubGraph_t> SubGraphCollection_t;
 
+class onnxTensorDescriptorV1;
 //!
 //! \namespace nvonnxparser
 //!
@@ -44,7 +63,7 @@ namespace nvonnxparser
 {
 
 template <typename T>
-inline int32_t EnumMax();
+inline int EnumMax();
 
 /** \enum ErrorCode
  *
@@ -62,9 +81,8 @@ enum class ErrorCode : int
     kUNSUPPORTED_GRAPH = 7,
     kUNSUPPORTED_NODE = 8
 };
-
 template <>
-inline int32_t EnumMax<ErrorCode>()
+inline int EnumMax<ErrorCode>()
 {
     return 9;
 }
@@ -107,14 +125,13 @@ class IParser
 {
 public:
     /** \brief Parse a serialized ONNX model into the TensorRT network.
-     *         This method has very limited diagnostics. If parsing the serialized model
+     *         This method has very limited diagnostic. If parsing the serialized model
      *         fails for any reason (e.g. unsupported IR version, unsupported opset, etc.)
      *         it the user responsibility to intercept and report the error.
      *         To obtain a better diagnostic, use the parseFromFile method below.
      *
      * \param serialized_onnx_model Pointer to the serialized ONNX model
-     * \param serialized_onnx_model_size Size of the serialized ONNX model
-     *        in bytes
+     * \param serialized_onnx_model_size Size of the serialized ONNX model in bytes
      * \param model_path Absolute path to the model file for loading external weights if required
      * \return true if the model was parsed successfully
      * \see getNbErrors() getError()
@@ -124,7 +141,7 @@ public:
                        const char* model_path = nullptr)
         = 0;
 
-    /** \brief Parse an onnx model file, which can be a binary protobuf or a text onnx model
+    /** \brief Parse an onnx model file, can be a binary protobuf or a text onnx model
      *         calls parse method inside.
      *
      * \param File name
@@ -156,11 +173,15 @@ public:
      * \param serialized_onnx_model Pointer to the serialized ONNX model
      * \param serialized_onnx_model_size Size of the serialized ONNX model
      *        in bytes
+     * \param weight_count number of user provided weights
+     * \param weight_descriptors pointer to user provided weight array
      * \return true if the model was parsed successfully
      * \see getNbErrors() getError()
      */
     virtual bool parseWithWeightDescriptors(
-        void const* serialized_onnx_model, size_t serialized_onnx_model_size)
+        void const* serialized_onnx_model, size_t serialized_onnx_model_size,
+        uint32_t weight_count,
+        onnxTensorDescriptorV1 const* weight_descriptors)
         = 0;
 
     /** \brief Returns whether the specified operator may be supported by the
@@ -173,10 +194,8 @@ public:
      */
     virtual bool supportsOperator(const char* op_name) const = 0;
     /** \brief destroy this object
-     *
-     * \warning deprecated and planned on being removed in TensorRT 10.0
      */
-    TRT_DEPRECATED virtual void destroy() = 0;
+    virtual void destroy() = 0;
     /** \brief Get the number of errors that occurred during prior calls to
      *         \p parse
      *
@@ -194,7 +213,8 @@ public:
      */
     virtual void clearErrors() = 0;
 
-    virtual ~IParser() noexcept = default;
+protected:
+    virtual ~IParser() {}
 };
 
 } // namespace nvonnxparser
@@ -205,6 +225,15 @@ extern "C" TENSORRTAPI int getNvOnnxParserVersion();
 namespace nvonnxparser
 {
 
+#ifdef SWIG
+inline IParser* createParser(nvinfer1::INetworkDefinition* network,
+                             nvinfer1::ILogger* logger)
+{
+    return static_cast<IParser*>(
+        createNvOnnxParser_INTERNAL(network, logger, NV_ONNX_PARSER_VERSION));
+}
+#endif // SWIG
+
 namespace
 {
 
@@ -213,17 +242,18 @@ namespace
  * \param network The network definition that the parser will write to
  * \param logger The logger to use
  * \return a new parser object or NULL if an error occurred
- *
- * Any input dimensions that are constant should not be changed after parsing,
- * because correctness of the translation may rely on those constants.
- * Changing a dynamic input dimension, i.e. one that translates to -1 in
- * TensorRT, to a constant is okay if the constant is consistent with the model.
- *
  * \see IParser
  */
-inline IParser* createParser(nvinfer1::INetworkDefinition& network, nvinfer1::ILogger& logger)
+#ifdef _MSC_VER
+TENSORRTAPI IParser* createParser(nvinfer1::INetworkDefinition& network,
+                                  nvinfer1::ILogger& logger)
+#else
+inline IParser* createParser(nvinfer1::INetworkDefinition& network,
+                             nvinfer1::ILogger& logger)
+#endif
 {
-    return static_cast<IParser*>(createNvOnnxParser_INTERNAL(&network, &logger, NV_ONNX_PARSER_VERSION));
+    return static_cast<IParser*>(
+        createNvOnnxParser_INTERNAL(&network, &logger, NV_ONNX_PARSER_VERSION));
 }
 
 } // namespace

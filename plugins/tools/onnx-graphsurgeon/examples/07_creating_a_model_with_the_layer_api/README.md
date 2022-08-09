@@ -1,7 +1,5 @@
 # Creating A Model Using The Graph Layer API
 
-## Introduction
-
 This example uses the `Graph.layer()` function in conjunction with `Graph.register()` to
 demonstrate how to construct complicated ONNX models more easily.
 
@@ -11,8 +9,10 @@ insert the node in the graph. For details, see the `help` output for `Graph.laye
 
 **Note**: You still need to set `Graph` inputs and outputs yourself!
 
+
 `Graph.layer()` can be used to implement your own functions that can be registered with `Graph.register()`.
 For example, to implement a `graph.add` function that inserts an "Add" operation into the graph, you could write:
+
 ```python
 @gs.Graph.register()
 def add(self, a, b):
@@ -20,12 +20,18 @@ def add(self, a, b):
 ```
 
 and invoke it like so:
+
 ```python
-[Y] = graph.add(*graph.add(X, B), C)
+X = gs.Variable(name="X", shape=(64, 64), dtype=np.float32)
+
+[Y] = graph.add(graph.add(X, B), C)
+
+graph.inputs = [X]
+graph.outputs = [Y]
 ```
 
-This would add a set of nodes which compute `Y = (X + B) + C` (assuming X, B, C are some tensors in the graph)
-to the graph without requiring you to manually create the intermediate tensors involved.
+This would generate a graph which computes `Y = (X + B) + C` (here B and C are assumed to be constants),
+without requiring you to manually create the intermediate tensors involved.
 
 ## Running the example
 

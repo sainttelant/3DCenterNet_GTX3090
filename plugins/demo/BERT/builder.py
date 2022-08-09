@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 import argparse
 import ctypes
@@ -30,16 +29,17 @@ import pycuda.autoinit
 # TensorRT
 import tensorrt as trt
 from helpers.calibrator import BertCalibrator as BertCalibrator
-from builder_utils import load_tf_weights, load_pytorch_weights_and_quant, load_onnx_weights_and_quant
-from builder_utils import WQKV, BQKV  # Attention Keys
-from builder_utils import W_AOUT, B_AOUT, W_MID, B_MID, W_LOUT, B_LOUT  # Transformer Keys
-from builder_utils import SQD_W, SQD_B  # SQuAD Output Keys
+
+try:
+    from tensorflow.python import pywrap_tensorflow as pyTF
+except ImportError as err:
+    sys.stderr.write("""Error: Failed to import tensorflow module ({})\n""".format(err))
+    sys.exit()
 
 """
 TensorRT Initialization
 """
 TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-trt_version = [int(n) for n in trt.__version__.split('.')]
 
 handle = ctypes.CDLL("libnvinfer_plugin.so", mode=ctypes.RTLD_GLOBAL)
 if not handle:
@@ -52,8 +52,40 @@ qkv2_plg_creator = plg_registry.get_plugin_creator("CustomQKVToContextPluginDyna
 skln_plg_creator = plg_registry.get_plugin_creator("CustomSkipLayerNormPluginDynamic", "1", "")
 fc_plg_creator = plg_registry.get_plugin_creator("CustomFCPluginDynamic", "1", "")
 
+"""
+Attentions Keys
+"""
+WQ = "self_query_kernel"
+BQ = "self_query_bias"
+WK = "self_key_kernel"
+BK = "self_key_bias"
+WV = "self_value_kernel"
+BV = "self_value_bias"
+WQKV = "self_qkv_kernel"
+BQKV = "self_qkv_bias"
+
+"""
+Transformer Keys
+"""
+W_AOUT = "attention_output_dense_kernel"
+B_AOUT = "attention_output_dense_bias"
+AOUT_LN_BETA = "attention_output_layernorm_beta"
+AOUT_LN_GAMMA = "attention_output_layernorm_gamma"
+W_MID = "intermediate_dense_kernel"
+B_MID = "intermediate_dense_bias"
+W_LOUT = "output_dense_kernel"
+B_LOUT = "output_dense_bias"
+LOUT_LN_BETA = "output_layernorm_beta"
+LOUT_LN_GAMMA = "output_layernorm_gamma"
+
+"""
+Squad Output Keys
+"""
+SQD_W = "squad_output_weights"
+SQD_B = "squad_output_bias"
+
 class BertConfig:
-    def __init__(self, bert_config_path, use_fp16, use_int8, use_strict, use_fc2_gemm, use_int8_skipln, use_int8_multihead, use_qat, use_sparsity, timing_cache):
+    def __init__(self, bert_config_path, use_fp16, use_int8, use_strict, use_fc2_gemm, use_int8_skipln, use_int8_multihead, use_qat):
         with open(bert_config_path, "r") as f:
             data = json.load(f)
             self.num_attention_heads = data["num_attention_heads"]
@@ -69,8 +101,6 @@ class BertConfig:
             self.use_int8_multihead = use_int8_multihead
             self.is_calib_mode = False
             self.use_qat = use_qat
-            self.use_sparsity = use_sparsity
-            self.timing_cache = timing_cache
 
 def set_tensor_name(tensor, prefix, name):
     tensor.name = prefix + name
@@ -80,15 +110,6 @@ def set_output_name(layer, prefix, name, out_idx = 0):
 
 def set_output_range(layer, maxval, out_idx = 0):
     layer.get_output(out_idx).set_dynamic_range(-maxval, maxval)
-
-def get_mha_dtype(config):
-    dtype = trt.float32
-    if config.use_fp16:
-        dtype = trt.float16
-    # Multi-head attention doesn't use INT8 inputs and output by default unless it is specified.
-    if config.use_int8 and config.use_int8_multihead and not config.is_calib_mode:
-        dtype = trt.int8
-    return int(dtype)
 
 def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask):
     """
@@ -104,7 +125,7 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask)
 
     # FC_attention
     if config.use_int8:
-        mult_all = network.add_convolution_nd(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
+        mult_all = network.add_convolution(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
     else:
         mult_all = network.add_fully_connected(input_tensor, 3 * hidden_size, Wall, Ball)
 
@@ -120,7 +141,14 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask)
     has_mask = imask is not None
 
     # QKV2CTX
-    pf_type = trt.PluginField("type_id", np.array([get_mha_dtype(config)], np.int32), trt.PluginFieldType.INT32)
+    dtype = trt.float32
+    if config.use_fp16:
+        dtype = trt.float16
+    # Multi-head attention doesn't use INT8 inputs and output by default unless it is specified.
+    if config.use_int8 and config.use_int8_multihead and not config.is_calib_mode:
+        dtype = trt.int8
+
+    pf_type = trt.PluginField("type_id", np.array([int(dtype)], np.int32), trt.PluginFieldType.INT32)
     pf_hidden_size = trt.PluginField("hidden_size", np.array([hidden_size], np.int32), trt.PluginFieldType.INT32)
     pf_num_heads = trt.PluginField("num_heads", np.array([num_heads], np.int32), trt.PluginFieldType.INT32)
     pf_has_mask = trt.PluginField("has_mask", np.array([has_mask], np.int32), trt.PluginFieldType.INT32)
@@ -179,11 +207,6 @@ def skipln(prefix, config, init_dict, network, input_tensor, skip, bias=None):
     layer = network.add_plugin_v2(skipln_inputs, skipln_plug)
     return layer
 
-# Custom FC plugin is faster than native FC only on older architectures.
-def use_custom_fc():
-    cc = pycuda.autoinit.device.compute_capability()
-    return cc[0] * 10 + cc[1] <= 70
-
 def custom_fc(config, network, input_tensor, out_dims, W):
     pf_out_dims = trt.PluginField("out_dims", np.array([out_dims], dtype=np.int32), trt.PluginFieldType.INT32)
     pf_W = trt.PluginField("W", W.numpy(), trt.PluginFieldType.FLOAT32)
@@ -203,7 +226,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     hidden_size = idims[2]
 
     if config.use_qat:
-        dr_input = init_dict[prefix + 'attention_self_query_input_amax']
+        dr_input = init_dict[prefix + 'attention_self_query_input_amax'] 
         assert(dr_input ==init_dict[prefix + 'attention_self_key_input_amax'] )
         assert(dr_input ==init_dict[prefix + 'attention_self_value_input_amax'] )
         input_tensor.set_dynamic_range(-dr_input, dr_input)
@@ -215,7 +238,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_aout = init_dict[prefix + B_AOUT]
     if config.use_int8:
         W_aout = init_dict[prefix + W_AOUT]
-        attention_out_fc = network.add_convolution_nd(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
+        attention_out_fc = network.add_convolution(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
         B_aout = None
 
         if not config.use_int8_skipln:
@@ -224,13 +247,9 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
         if config.use_qat:
             dr_fc_aout = init_dict[prefix + 'attention_output_add_local_input_quantizer_amax']
             set_output_range(attention_out_fc, dr_fc_aout)
-    elif use_custom_fc():
+    else:
         W_aoutT = init_dict[prefix + W_AOUT + "_notrans"]
         attention_out_fc = custom_fc(config, network, attention_heads, hidden_size, W_aoutT)
-    else:
-        W_aout = init_dict[prefix + W_AOUT]
-        attention_out_fc = network.add_fully_connected(attention_heads, hidden_size, W_aout, B_aout)
-        B_aout = None
 
     skiplayer = skipln(prefix + "attention_output_layernorm_",config, init_dict, network, attention_out_fc.get_output(0), input_tensor, B_aout)
     attention_ln = skiplayer.get_output(0)
@@ -242,7 +261,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_mid = init_dict[prefix + B_MID]
     W_mid = init_dict[prefix + W_MID]
     if config.use_int8:
-        mid_dense = network.add_convolution_nd(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
+        mid_dense = network.add_convolution(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
     else:
         mid_dense = network.add_fully_connected(attention_ln, config.intermediate_size, W_mid, B_mid)
 
@@ -271,7 +290,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
             dr_gelu = init_dict[prefix + 'output_dense_input_amax']
             set_output_range(gelu_layer, dr_gelu)
         else:
-            # use gelu10 according to whitepaper http://arxiv.org/abs/2004.09602
+            # use gelu10 according to whitepaper http://arxiv.org/abs/2004.09602 
             set_output_range(gelu_layer, 10)
 
     # FC2
@@ -279,18 +298,14 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_lout = init_dict[prefix + B_LOUT]
     if config.use_int8 and not config.use_fc2_gemm:
         W_lout = init_dict[prefix + W_LOUT]
-        out_dense = network.add_convolution_nd(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
+        out_dense = network.add_convolution(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
         B_lout = None
 
         if not config.use_int8_skipln:
             out_dense.set_output_type(0, trt.DataType.HALF if config.use_fp16 else trt.DataType.FLOAT)
-    elif use_custom_fc():
+    else:
         W_loutT = init_dict[prefix + W_LOUT + "_notrans"]
         out_dense = custom_fc(config, network, intermediate_act, hidden_size, W_loutT)
-    else:
-        W_lout = init_dict[prefix + W_LOUT]
-        out_dense = network.add_fully_connected(intermediate_act, hidden_size, W_lout, B_lout)
-        B_lout = None
 
     if config.use_qat:
         dr_fc_out = init_dict[prefix + 'output_add_local_input_quantizer_amax']
@@ -337,34 +352,191 @@ def squad_output(prefix, config, init_dict, network, input_tensor):
     set_output_name(OUT, prefix, "squad_logits")
     return OUT
 
-def emb_layernorm(builder, network, config, weights_dict, builder_config, sequence_lengths, batch_sizes):
-    # int8 only support some of the sequence length, we dynamic on sequence length is not allowed.
-    input_ids = network.add_input(name="input_ids", dtype=trt.int32, shape=(-1 if len(batch_sizes) > 1 else batch_sizes[0], -1 if len(sequence_lengths) > 1 else sequence_lengths[0]))
-    segment_ids = network.add_input(name="segment_ids", dtype=trt.int32, shape=(-1 if len(batch_sizes) > 1 else batch_sizes[0], -1 if len(sequence_lengths) > 1 else sequence_lengths[0]))
-    input_mask = network.add_input(name="input_mask", dtype=trt.int32, shape=(-1 if len(batch_sizes) > 1 else batch_sizes[0], -1 if len(sequence_lengths) > 1 else sequence_lengths[0]))
+def load_tf_weights(inputbase, config):
+    """
+    Load the weights from the tensorflow checkpoint
+    """
+    weights_dict = dict()
+
+    try:
+        reader = pyTF.NewCheckpointReader(inputbase)
+        tensor_dict = reader.get_variable_to_shape_map()
+
+        # There might be training-related variables in the checkpoint that can be discarded
+        param_names = [key for key in sorted(tensor_dict) if "adam" not in key and "global_step" not in key and "pooler" not in key]
+        count = len(param_names)
+        TRT_LOGGER.log(TRT_LOGGER.INFO, "Found {:} entries in weight map".format(count))
+
+        for pn in param_names:
+            toks = pn.lower().split("/")
+            if "encoder" in pn:
+                assert ("layer" in pn)
+                l = (re.findall("\d+", pn))[0]
+                outname = "l{}_".format(l) + "_".join(toks[3:])
+            else:
+                outname = "_".join(toks)
+
+            tensor = reader.get_tensor(pn)
+            shape = tensor.shape
+            if pn.find("kernel") != -1:
+                weights_dict[outname + "_notrans"] = trt.Weights(np.ascontiguousarray(tensor).flatten())
+
+                TRT_LOGGER.log(TRT_LOGGER.VERBOSE, "Transposing {}\n".format(np))
+                tensor = np.transpose(tensor)
+
+            shape = tensor.shape
+            flat_tensor = tensor.flatten()
+            shape_str = "{} ".format(len(shape)) + " ".join([str(d) for d in shape])
+            weights_dict[outname] = trt.Weights(flat_tensor)
+
+            TRT_LOGGER.log(TRT_LOGGER.VERBOSE, "Original name: {:}, TensorRT name: {:}, shape: {:}".format(pn, outname, shape_str))
+
+        N = config.num_attention_heads
+        H = config.head_size
+
+        additional_dict = dict()
+        for key, value in weights_dict.items():
+            pos = key.find(BQ)
+            if pos != -1:
+                hidden_size = value.size
+                prefix = key[:pos]
+
+                Bq_ = value
+                Bk_ = weights_dict[prefix + BK]
+                Bv_ = weights_dict[prefix + BV]
+                Wq_ = weights_dict[prefix + WQ]
+                Wk_ = weights_dict[prefix + WK]
+                Wv_ = weights_dict[prefix + WV]
+
+                mat_size = hidden_size * hidden_size
+                wcount = 3 * mat_size
+                Wall = np.zeros(wcount, np.float32)
+                bcount = 3 * hidden_size
+                Ball = np.zeros(bcount, np.float32)
+                Wall[0:mat_size] = Wq_.numpy()[0:mat_size]
+                Wall[mat_size:2*mat_size] = Wk_.numpy()[0:mat_size]
+                Wall[2*mat_size:3*mat_size] = Wv_.numpy()[0:mat_size]
+                Ball[0:hidden_size] = Bq_.numpy()[0:hidden_size]
+                Ball[hidden_size:2*hidden_size] = Bk_.numpy()[0:hidden_size]
+                Ball[2*hidden_size:3*hidden_size] = Bv_.numpy()[0:hidden_size]
+
+                Wall = np.ascontiguousarray(Wall.reshape((3, N, H, N, H)).transpose((1, 0, 2, 3, 4)), dtype=np.float32)
+                Ball = np.ascontiguousarray(Ball.reshape((3, N, H)).transpose((1, 0, 2)), dtype=np.float32)
+
+                additional_dict[prefix + WQKV] = trt.Weights(Wall)
+                additional_dict[prefix + BQKV] = trt.Weights(Ball)
+
+                additional_dict[prefix + WQKV + "_notrans"] = trt.Weights(Wall.T)
+
+    except Exception as error:
+        TRT_LOGGER.log(TRT_LOGGER.ERROR, str(error))
+
+    weights_dict.update(additional_dict)
+    return weights_dict
+
+def onnx_to_trt_name(onnx_name):
+    """
+    Converting variables in the onnx checkpoint to names corresponding to the naming convention used in the TF version, expected by the builder
+    """
+    onnx_name = onnx_name.lower()
+    toks = [t.strip('_') for t in onnx_name.split('.')]
+    if toks[0] == 'bert': #embeddings or encoder
+        if toks[1] == 'encoder': #transformer
+            
+            if toks[-2] == 'layernorm': #bias->beta, weight->gamma
+                toks[-1] = 'beta' if toks[-1] == 'bias' else 'gamma'
+            elif (toks[-2] == 'dense' or toks[-2] in {'key', 'value', 'query'}) and toks[-1] == 'weight':
+                toks[-1] = 'kernel'
+            elif (toks[-3] == 'dense' or toks[-3] in {'key', 'value', 'query'}) and toks[-1] == 'amax':
+                if toks[-2] == 'weight_quantizer':
+                    toks[-2] = 'kernel'
+                elif toks[-2] == 'input_quantizer':
+                    toks[-2] = 'input'
+            
+            if 'final_input_quantizer' not in toks[2]:
+                toks = toks[3:]
+                toks[0] = 'l{}'.format(int(toks[0]))
+        else:
+            if toks[-2] == 'layernorm': #bias->beta, weight->gamma
+                toks[-1] = 'beta' if toks[-1] == 'bias' else 'gamma'
+            else: #embeddings: drop "_weight" suffix
+                if toks[-1] == 'amax':
+                    toks[-2] = 'amax'
+                toks = toks[:-1]
+    elif 'qa' in onnx_name:
+        name = 'cls_squad_output_bias' if toks[-1] == 'bias' else 'cls_squad_output_weights'
+        return name
+    else:
+        print("Encountered unknown case:", onnx_name)
+        assert(False)
+    parsed = '_'.join(toks)
+    return parsed
+
+def load_onnx_weights_and_quant(path, config):
+    """
+    Load the weights from the onnx checkpoint
+    """
+    N = config.num_attention_heads
+    H = config.head_size
+    hidden_size = config.hidden_size
+
+    model = onnx.load(path)
+    weights = model.graph.initializer
+    tensor_dict = dict([(onnx_to_trt_name(w.name), np.frombuffer(w.raw_data, np.float32).reshape(w.dims)) for w in weights])
+
+    weights_dict = dict()
+    for outname, tensor in tensor_dict.items():
+        if outname.find("_amax") != -1:
+            weights_dict[outname] = tensor
+        elif outname.find(BQ) != -1:
+            prefix = outname[:outname.find(BQ)]
+
+            Wqkv = np.zeros((3, hidden_size, hidden_size), np.float32)
+            Bqkv = np.zeros((3, hidden_size), np.float32)
+
+            Wqkv[0,:,:] = tensor_dict[prefix + WQ]
+            Wqkv[1,:,:] = tensor_dict[prefix + WK]
+            Wqkv[2,:,:] = tensor_dict[prefix + WV]
+            Bqkv[0,:] = tensor
+            Bqkv[1,:] = tensor_dict[prefix + BK]
+            Bqkv[2,:] = tensor_dict[prefix + BV]
+    
+            Wqkv = np.ascontiguousarray(Wqkv.reshape((3, N, H, N, H)).transpose((1,0,2,3,4)))
+            Bqkv = np.ascontiguousarray(Bqkv.reshape((3, N, H)).transpose((1,0,2)))
+    
+            weights_dict[prefix + WQKV] = trt.Weights(Wqkv)
+            weights_dict[prefix + BQKV] = trt.Weights(Bqkv)
+            weights_dict[prefix + WQKV + "_notrans"] = trt.Weights(Wqkv.T)
+
+        elif outname.find(BK) != -1 or outname.find(BV) != -1 or outname.find(WQ) != -1 or outname.find(WK) != -1 or outname.find(WV) != -1:
+            pass
+        else:
+            flat_tensor = np.ascontiguousarray(tensor).flatten()
+            weights_dict[outname] = trt.Weights(flat_tensor)
+
+            if outname.find("kernel") != -1:
+                tensor = np.transpose(tensor)
+                weights_dict[outname + "_notrans"] = trt.Weights(np.ascontiguousarray(tensor).flatten())
+
+
+    TRT_LOGGER.log(TRT_LOGGER.INFO, "Found {:} entries in weight map".format(len(weights_dict)))
+    return weights_dict
+
+def emb_layernorm(builder, network, config, weights_dict, builder_config, sequence_length, batch_sizes):
+    input_ids = network.add_input(name="input_ids", dtype=trt.int32, shape=(-1, sequence_length))
+    segment_ids = network.add_input(name="segment_ids", dtype=trt.int32, shape=(-1, sequence_length))
+    input_mask = network.add_input(name="input_mask", dtype=trt.int32, shape=(-1, sequence_length))
 
     # Specify profiles for the batch sizes we're interested in.
     # Make sure the profile also works for all sizes not covered by the previous profile.
-
-    if len(sequence_lengths) > 1 or len(batch_sizes) > 1:
-        for batch_size in sorted(batch_sizes):
-            if len(sequence_lengths) == 1:
-                profile = builder.create_optimization_profile()
-                min_shape = (1, sequence_lengths[0])
-                shape = (batch_size, sequence_lengths[0])
-                profile.set_shape("input_ids", min=min_shape, opt=shape, max=shape)
-                profile.set_shape("segment_ids", min=min_shape, opt=shape, max=shape)
-                profile.set_shape("input_mask", min=min_shape, opt=shape, max=shape)
-                builder_config.add_optimization_profile(profile)
-            else:
-                for sequence_length in sorted(sequence_lengths):
-                    profile = builder.create_optimization_profile()
-                    min_shape = (1, sequence_length)
-                    shape = (batch_size, sequence_length)
-                    profile.set_shape("input_ids", min=min_shape, opt=shape, max=shape)
-                    profile.set_shape("segment_ids", min=min_shape, opt=shape, max=shape)
-                    profile.set_shape("input_mask", min=min_shape, opt=shape, max=shape)
-                    builder_config.add_optimization_profile(profile)
+    for batch_size in sorted(batch_sizes):
+        profile = builder.create_optimization_profile()
+        min_shape = (1, sequence_length)
+        shape = (batch_size, sequence_length)
+        profile.set_shape("input_ids", min=min_shape, opt=shape, max=shape)
+        profile.set_shape("segment_ids", min=min_shape, opt=shape, max=shape)
+        profile.set_shape("input_mask", min=min_shape, opt=shape, max=shape)
+        builder_config.add_optimization_profile(profile)
 
     wbeta = trt.PluginField("bert_embeddings_layernorm_beta", weights_dict["bert_embeddings_layernorm_beta"].numpy(), trt.PluginFieldType.FLOAT32)
     wgamma = trt.PluginField("bert_embeddings_layernorm_gamma", weights_dict["bert_embeddings_layernorm_gamma"].numpy(), trt.PluginFieldType.FLOAT32)
@@ -373,9 +545,16 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
     wposemb = trt.PluginField("bert_embeddings_position_embeddings", weights_dict["bert_embeddings_position_embeddings"].numpy(), trt.PluginFieldType.FLOAT32)
 
     output_fp16 = trt.PluginField("output_fp16", np.array([1 if config.use_fp16 else 0]).astype(np.int32), trt.PluginFieldType.INT32)
-    mha_type = trt.PluginField("mha_type_id", np.array([get_mha_dtype(config)], np.int32), trt.PluginFieldType.INT32)
 
-    pfc = trt.PluginFieldCollection([wbeta, wgamma, wwordemb, wtokemb, wposemb, output_fp16, mha_type])
+    use_full_mask = 0
+    # use full_mask for XMMA kernels (use fp16/int8 precision and SM version >= 72)
+    if not config.is_calib_mode and (config.use_fp16 or config.use_int8):
+        cc = pycuda.autoinit.device.compute_capability()
+        if cc[0] * 10 + cc[1] >= 72:
+            use_full_mask = 1
+    full_mask = trt.PluginField("full_mask", np.array([use_full_mask]).astype(np.int32), trt.PluginFieldType.INT32)
+
+    pfc = trt.PluginFieldCollection([wbeta, wgamma, wwordemb, wtokemb, wposemb, output_fp16, full_mask])
     fn = emln_plg_creator.create_plugin("embeddings", pfc)
 
     input_ids = network.add_shuffle(input_ids)
@@ -394,7 +573,7 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
     set_output_name(emb_layer, "embeddings_", "output")
     return emb_layer
 
-def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
+def build_engine(batch_sizes, workspace_size, sequence_length, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
     explicit_batch_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
     with trt.Builder(TRT_LOGGER) as builder, builder.create_network(explicit_batch_flag) as network, builder.create_builder_config() as builder_config:
@@ -404,37 +583,14 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
         if config.use_int8:
             builder_config.set_flag(trt.BuilderFlag.INT8)
             if not config.use_qat:
-                calibrator = BertCalibrator(squad_json, vocab_file, calibrationCacheFile, 1, sequence_lengths[-1], calib_num)
+                calibrator = BertCalibrator(squad_json, vocab_file, calibrationCacheFile, 1, sequence_length, calib_num)
                 builder_config.set_quantization_flag(trt.QuantizationFlag.CALIBRATE_BEFORE_FUSION)
                 builder_config.int8_calibrator = calibrator
         if config.use_strict:
             builder_config.set_flag(trt.BuilderFlag.STRICT_TYPES)
-    
-        if config.use_sparsity:
-            TRT_LOGGER.log(TRT_LOGGER.INFO, "Setting sparsity flag on builder_config.")
-            builder_config.set_flag(trt.BuilderFlag.SPARSE_WEIGHTS)
-
-        # speed up the engine build for trt major version >= 8 
-        # 1. disable cudnn tactic
-        # 2. load global timing cache
-        if trt_version[0] >= 8:
-            tactic_source = 1 << int(trt.TacticSource.CUBLAS) | 1 << int(trt.TacticSource.CUBLAS_LT)
-            builder_config.set_tactic_sources(tactic_source)
-            if config.timing_cache != None:
-                if os.path.exists(config.timing_cache):
-                    with open(config.timing_cache, "rb") as f:
-                        cache = builder_config.create_timing_cache(f.read())
-                        builder_config.set_timing_cache(cache, ignore_mismatch = False)
-                else:
-                    cache = builder_config.create_timing_cache(b"")
-                    builder_config.set_timing_cache(cache, ignore_mismatch = False)
-
-        # only use the largest sequence when in calibration mode
-        if config.is_calib_mode:
-            sequence_lengths = sequence_lengths[-1:]
 
         # Create the network
-        emb_layer = emb_layernorm(builder, network, config, weights_dict, builder_config, sequence_lengths, batch_sizes)
+        emb_layer = emb_layernorm(builder, network, config, weights_dict, builder_config, sequence_length, batch_sizes)
         embeddings = emb_layer.get_output(0)
         mask_idx = emb_layer.get_output(1)
 
@@ -449,21 +605,11 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
         engine = builder.build_engine(network, builder_config)
         build_time_elapsed = (time.time() - build_start_time)
         TRT_LOGGER.log(TRT_LOGGER.INFO, "build engine in {:.3f} Sec".format(build_time_elapsed))
-
-        # save global timing cache
-        if trt_version[0] >= 8 and config.timing_cache != None:
-            cache = builder_config.get_timing_cache()
-            with cache.serialize() as buffer:
-                with open(config.timing_cache, "wb") as f:
-                    f.write(buffer)
-                    f.flush()
-                    os.fsync(f)
-
         if config.use_int8 and not config.use_qat:
             calibrator.free()
         return engine
 
-def generate_calibration_cache(sequence_lengths, workspace_size, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
+def generate_calibration_cache(sequence_length, workspace_size, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
     """
     BERT demo needs a separate engine building path to generate calibration cache.
     This is because we need to configure SLN and MHA plugins in FP32 mode when
@@ -480,7 +626,7 @@ def generate_calibration_cache(sequence_lengths, workspace_size, config, weights
     config.use_fp16 = False
     config.is_calib_mode = True
 
-    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num) as engine:
+    with build_engine([1], workspace_size, sequence_length, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num) as engine:
         TRT_LOGGER.log(TRT_LOGGER.INFO, "calibration cache generated in {:}".format(calibrationCacheFile))
 
     config.use_fp16 = saved_use_fp16
@@ -491,10 +637,9 @@ def main():
     parser.add_argument("-m", "--ckpt", required=False,
                         help="The checkpoint file basename, e.g.: basename(model.ckpt-766908.data-00000-of-00001) is model.ckpt-766908")
     parser.add_argument("-x", "--onnx", required=False, help="The ONNX model file path.")
-    parser.add_argument("-pt", "--pytorch", required=False, help="The PyTorch checkpoint file path.")
     parser.add_argument("-o", "--output", required=True, default="bert_base_384.engine", help="The bert engine file, ex bert.engine")
     parser.add_argument("-b", "--batch-size", default=[], action="append", help="Batch size(s) to optimize for. The engine will be usable with any batch size below this, but may not be optimal for smaller sizes. Can be specified multiple times to optimize for more than one batch size.", type=int)
-    parser.add_argument("-s", "--sequence-length", default=[], action="append", help="Sequence length of the BERT model", type=int)
+    parser.add_argument("-s", "--sequence-length", default=128, help="Sequence length of the BERT model", type=int)
     parser.add_argument("-c", "--config-dir", required=True,
                         help="The folder containing the bert_config.json, which can be downloaded e.g. from https://github.com/google-research/bert#pre-trained-models or by running download_models.py in dle/TensorFlow/LanguageModeling/BERT/data/pretrained_models_google")
     parser.add_argument("-f", "--fp16", action="store_true", help="Indicates that inference should be run in FP16 precision", required=False)
@@ -508,33 +653,22 @@ def main():
     parser.add_argument("-g", "--force-fc2-gemm", action="store_true", help="Force use gemm to implement FC2 layer", required=False)
     parser.add_argument("-iln", "--force-int8-skipln", action="store_true", help="Run skip layernorm with INT8 (FP32 or FP16 by default) inputs and output", required=False)
     parser.add_argument("-imh", "--force-int8-multihead", action="store_true", help="Run multi-head attention with INT8 (FP32 or FP16 by default) input and output", required=False)
-    parser.add_argument("-sp", "--sparse", action="store_true", help="Indicates that model is sparse", required=False)
-    parser.add_argument("-tcf", "--timing-cache-file", help="Path to tensorrt build timeing cache file, only available for tensorrt 8.0 and later", required=False)
 
     args, _ = parser.parse_known_args()
     args.batch_size = args.batch_size or [1]
-    args.sequence_length = args.sequence_length or [128]
-
-    cc = pycuda.autoinit.device.compute_capability()
-    if cc[0] * 10 + cc[1] < 75 and args.force_int8_multihead:
-        raise RuntimeError("--force-int8-multihead option is only supported on Turing+ GPU.")
-    if cc[0] * 10 + cc[1] < 72 and args.force_int8_skipln:
-        raise RuntimeError("--force-int8-skipln option is only supported on Xavier+ GPU.")
 
     bert_config_path = os.path.join(args.config_dir, "bert_config.json")
     TRT_LOGGER.log(TRT_LOGGER.INFO, "Using configuration file: {:}".format(bert_config_path))
 
-    config = BertConfig(bert_config_path, args.fp16, args.int8, args.strict, args.force_fc2_gemm, args.force_int8_skipln, args.force_int8_multihead, args.int8 and args.onnx != None, args.sparse, args.timing_cache_file)
+    config = BertConfig(bert_config_path, args.fp16, args.int8, args.strict, args.force_fc2_gemm, args.force_int8_skipln, args.force_int8_multihead, args.int8 and args.onnx != None)
 
     if args.calib_path != None:
         calib_cache = args.calib_path
     else:
-        calib_cache = "BertSquadL{}H{}A{}S{}CalibCache".format(config.num_hidden_layers, config.head_size, config.num_attention_heads, "-".join(str(len) for len in args.sequence_length))
+        calib_cache = "BertSquadL{}H{}A{}S{}CalibCache".format(config.num_hidden_layers, config.head_size, config.num_attention_heads, args.sequence_length)
 
     if args.onnx != None:
         weights_dict = load_onnx_weights_and_quant(args.onnx, config)
-    elif args.pytorch != None:
-        weights_dict = load_pytorch_weights_and_quant(args.pytorch, config)
     elif args.ckpt != None:
         weights_dict = load_tf_weights(args.ckpt, config)
         generate_calibration_cache(args.sequence_length, args.workspace_size, config, weights_dict, args.squad_json, args.vocab_file, calib_cache, args.calib_num)

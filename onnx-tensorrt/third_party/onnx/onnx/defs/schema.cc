@@ -61,10 +61,6 @@ int OpSchema::FormalParameter::GetMinArity() const {
   return min_arity_;
 }
 
-OpSchema::DifferentiationCategory OpSchema::FormalParameter::GetDifferentiationCategory() const {
-  return differentiation_category_;
-}
-
 OpSchemaRegistry* OpSchemaRegistry::Instance() {
   static OpSchemaRegistry instance;
   return &instance;
@@ -96,15 +92,13 @@ void OpSchema::CheckInputOutputType(struct InferenceContext& ctx) const {
     }
     if (param.GetIsHomogeneous()) {
       const auto& type_proto = Utils::DataTypeUtils::ToType(*param_type);
-      auto p = type_constraints.emplace(type_str, *type_proto);
-      if (!p.second) {
-        // failed to insert a new element due to a duplication, now check consistency
-        if (p.first->second != *type_proto) {
-          fail_check(
+      if (type_constraints.find(type_str) == type_constraints.end()) {
+        type_constraints[type_str] = *type_proto;
+      } else if (type_constraints[type_str] != *type_proto) {
+        fail_check(
             param.GetName(),
             " has inconsistent type ",
             *Utils::DataTypeUtils::ToType(*param_type));
-        }
       }
     }
   } // for inputs
@@ -212,7 +206,7 @@ void OpSchema::Verify(const NodeProto& node) const {
   // Check the values of inputs / outputs
   for (int in_idx = 0; in_idx < node.input_size(); ++in_idx) {
     if (in_idx >= static_cast<int>(inputs_.size())) {
-      if (!inputs_.empty() && Variadic == inputs_.back().GetOption()) {
+      if (inputs_.size() > 0 && Variadic == inputs_.back().GetOption()) {
         // The last input formal parameter should be variadic.
         break;
       } else {
@@ -238,7 +232,7 @@ void OpSchema::Verify(const NodeProto& node) const {
 
   for (int out_idx = 0; out_idx < node.output_size(); ++out_idx) {
     if (out_idx >= static_cast<int>(outputs_.size())) {
-      if (!outputs_.empty() && Variadic == outputs_.back().GetOption()) {
+      if (outputs_.size() > 0 && Variadic == outputs_.back().GetOption()) {
         // The last output formal parameter should be variadic.
         break;
       } else {
@@ -402,14 +396,14 @@ OpSchema& OpSchema::NumInputs(std::set<int> allowed_input_nums) {
 OpSchema& OpSchema::NumOutputs(std::set<int> allowed_output_nums) {
   num_outputs_allowed_ =
       [MOVE_CAPTURE_IF_CPP14(allowed_output_nums)](int n) -> bool {
-    return allowed_output_nums.count(n) > 0;
+    return allowed_output_nums.count(n);
   };
   return *this;
 }
 
 OpSchema& OpSchema::TypeAndShapeInferenceFunction(
     InferenceFunction inferenceFunction) {
-  tensor_inference_function_ = std::move(inferenceFunction);
+  tensor_inference_function_ = inferenceFunction;
   return *this;
 }
 
@@ -583,8 +577,7 @@ OpSchema& OpSchema::Input(
     std::string type_str,
     OpSchema::FormalParameterOption param_option,
     bool is_homogeneous,
-    int min_arity,
-    DifferentiationCategory differentiation_category) {
+    int min_arity) {
   if (int(inputs_.size()) <= n) {
     inputs_.resize(n + 1);
   }
@@ -598,8 +591,7 @@ OpSchema& OpSchema::Input(
       std::move(type_str),
       param_option,
       is_homogeneous,
-      min_arity,
-      differentiation_category);
+      min_arity);
   return *this;
 }
 
@@ -610,8 +602,7 @@ OpSchema& OpSchema::Input(
     const char* type_str,
     FormalParameterOption param_option,
     bool is_homogeneous,
-    int min_arity,
-    DifferentiationCategory differentiation_category) {
+    int min_arity) {
   return Input(
       n,
       std::string(name),
@@ -623,8 +614,7 @@ OpSchema& OpSchema::Input(
       std::string(type_str),
       param_option,
       is_homogeneous,
-      min_arity,
-      differentiation_category);
+      min_arity);
 }
 
 OpSchema& OpSchema::Output(
@@ -634,8 +624,7 @@ OpSchema& OpSchema::Output(
     std::string type_str,
     OpSchema::FormalParameterOption param_option,
     bool is_homogeneous,
-    int min_arity,
-    DifferentiationCategory differentiation_category) {
+    int min_arity) {
   if (int(outputs_.size()) <= n) {
     outputs_.resize(n + 1);
   }
@@ -649,8 +638,7 @@ OpSchema& OpSchema::Output(
       std::move(type_str),
       param_option,
       is_homogeneous,
-      min_arity,
-      differentiation_category);
+      min_arity);
   return *this;
 }
 
@@ -661,8 +649,7 @@ OpSchema& OpSchema::Output(
     const char* type_str,
     FormalParameterOption param_option,
     bool is_homogeneous,
-    int min_arity,
-    DifferentiationCategory differentiation_category) {
+    int min_arity) {
   return Output(
       n,
       std::string(name),
@@ -674,8 +661,7 @@ OpSchema& OpSchema::Output(
       std::string(type_str),
       param_option,
       is_homogeneous,
-      min_arity,
-      differentiation_category);
+      min_arity);
 }
 
 OpSchema& OpSchema::TypeConstraint(
@@ -729,7 +715,7 @@ void OpSchema::ParseAndSetTypes(
 
 OpSchema& OpSchema::SetContextDependentFunctionBodyBuilder(
     ContextDependentFunctionBodyBuilder functionBuilder) {
-  functionBuilder_ = std::move(functionBuilder);
+  functionBuilder_ = functionBuilder;
   return *this;
 }
 
@@ -877,9 +863,9 @@ std::ostream& operator<<(std::ostream& out, const OpSchema& schema) {
         const auto& name = p.GetName();
         const auto& description = p.GetDescription();
         const auto& type_str = p.GetTypeStr();
-        out << "  " << i << ", " << (!name.empty() ? name : "(unnamed)") << " : "
-            << (!description.empty() ? description : "(no doc)") << " : "
-            << (!type_str.empty() ? type_str : "(no type)") << std::endl;
+        out << "  " << i << ", " << ("" != name ? name : "(unnamed)") << " : "
+            << ("" != description ? description : "(no doc)") << " : "
+            << ("" != type_str ? type_str : "(no type)") << std::endl;
       }
     } else {
       out << "  (no explicit description available)" << std::endl;
@@ -893,9 +879,9 @@ std::ostream& operator<<(std::ostream& out, const OpSchema& schema) {
         const auto& name = p.GetName();
         const auto& description = p.GetDescription();
         const auto& type_str = p.GetTypeStr();
-        out << "  " << i << ", " << (!name.empty() ? name : "(unnamed)") << " : "
-            << (!description.empty() ? description : "(no doc)") << " : "
-            << (!type_str.empty() ? type_str : "(no type)") << std::endl;
+        out << "  " << i << ", " << ("" != name ? name : "(unnamed)") << " : "
+            << ("" != description ? description : "(no doc)") << " : "
+            << ("" != type_str ? type_str : "(no type)") << std::endl;
       }
     } else {
       out << "  (no explicit description available)" << std::endl;

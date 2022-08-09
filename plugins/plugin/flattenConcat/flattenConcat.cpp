@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,15 @@
 #include <utility>
 #include <vector>
 
+#define ASSERT(assertion)                                                                                              \
+    {                                                                                                                  \
+        if (!(assertion))                                                                                              \
+        {                                                                                                              \
+            std::cerr << "#assertion" << __FILE__ << "," << __LINE__ << std::endl;                                     \
+            abort();                                                                                                   \
+        }                                                                                                              \
+    }
+
 using namespace nvinfer1;
 using nvinfer1::plugin::FlattenConcat;
 using nvinfer1::plugin::FlattenConcatPluginCreator;
@@ -40,8 +49,8 @@ FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch)
     ASSERT(mConcatAxisID == 1 || mConcatAxisID == 2 || mConcatAxisID == 3);
 }
 
-FlattenConcat::FlattenConcat(
-    int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis, const int* inputConcatAxis, const size_t* copySize)
+FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis,
+    const int* inputConcatAxis, const size_t* copySize)
     : mCopySize(numInputs)
     , mInputConcatAxis(numInputs)
     , mIgnoreBatch(ignoreBatch)
@@ -68,7 +77,7 @@ FlattenConcat::FlattenConcat(const void* data, size_t length)
     mInputConcatAxis.resize(mNumInputs);
     std::for_each(mInputConcatAxis.begin(), mInputConcatAxis.end(), [&](int& inp) { inp = read<int>(d); });
 
-    mCHW = read<nvinfer1::Dims3>(d);
+    mCHW = read<nvinfer1::DimsCHW>(d);
 
     mCopySize.resize(mNumInputs);
     std::for_each(mCopySize.begin(), mCopySize.end(), [&](size_t& inp) { inp = read<size_t>(d); });
@@ -76,117 +85,94 @@ FlattenConcat::FlattenConcat(const void* data, size_t length)
     ASSERT(d == a + length);
 }
 
-FlattenConcat::~FlattenConcat()
-{
-}
+FlattenConcat::~FlattenConcat() {}
 
-int FlattenConcat::getNbOutputs() const noexcept
+int FlattenConcat::getNbOutputs() const
 {
     return 1;
 }
 
-Dims FlattenConcat::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims FlattenConcat::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
-    try
+    ASSERT(nbInputDims >= 1);
+    ASSERT(index == 0);
+
+    mNumInputs = nbInputDims;
+    mCopySize.resize(mNumInputs);
+    mInputConcatAxis.resize(mNumInputs);
+    int outputConcatAxis = 0;
+
+    for (int i = 0; i < nbInputDims; ++i)
     {
-        ASSERT(nbInputDims >= 1);
-        ASSERT(index == 0);
-
-        mNumInputs = nbInputDims;
-        mCopySize.resize(mNumInputs);
-        mInputConcatAxis.resize(mNumInputs);
-        int outputConcatAxis = 0;
-
-        for (int i = 0; i < nbInputDims; ++i)
+        int flattenInput = 0;
+        ASSERT(inputs[i].nbDims == 3);
+        if (mConcatAxisID != 1)
         {
-            int flattenInput = 0;
-            ASSERT(inputs[i].nbDims == 3);
-            if (mConcatAxisID != 1)
-            {
-                ASSERT(inputs[i].d[0] == inputs[0].d[0]);
-            }
-            if (mConcatAxisID != 2)
-            {
-                ASSERT(inputs[i].d[1] == inputs[0].d[1]);
-            }
-            if (mConcatAxisID != 3)
-            {
-                ASSERT(inputs[i].d[2] == inputs[0].d[2]);
-            }
-            flattenInput = inputs[i].d[0] * inputs[i].d[1] * inputs[i].d[2];
-            outputConcatAxis += flattenInput;
+            ASSERT(inputs[i].d[0] == inputs[0].d[0]);
         }
+        if (mConcatAxisID != 2)
+        {
+            ASSERT(inputs[i].d[1] == inputs[0].d[1]);
+        }
+        if (mConcatAxisID != 3)
+        {
+            ASSERT(inputs[i].d[2] == inputs[0].d[2]);
+        }
+        flattenInput = inputs[i].d[0] * inputs[i].d[1] * inputs[i].d[2];
+        outputConcatAxis += flattenInput;
+    }
 
-        return Dims3(mConcatAxisID == 1 ? outputConcatAxis : 1, mConcatAxisID == 2 ? outputConcatAxis : 1,
-            mConcatAxisID == 3 ? outputConcatAxis : 1);
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return Dims{};
+    return DimsCHW(mConcatAxisID == 1 ? outputConcatAxis : 1, mConcatAxisID == 2 ? outputConcatAxis : 1,
+        mConcatAxisID == 3 ? outputConcatAxis : 1);
 }
 
-int FlattenConcat::initialize() noexcept
+int FlattenConcat::initialize()
 {
     return STATUS_SUCCESS;
 }
 
-void FlattenConcat::terminate() noexcept {}
+void FlattenConcat::terminate() {}
 
-size_t FlattenConcat::getWorkspaceSize(int) const noexcept
+size_t FlattenConcat::getWorkspaceSize(int) const
 {
     return 0;
 }
 
-int FlattenConcat::enqueue(
-    int batchSize, const void* const* inputs, void* const* outputs, void*, cudaStream_t stream) noexcept
+int FlattenConcat::enqueue(int batchSize, const void* const* inputs, void** outputs, void*, cudaStream_t stream)
 {
-    try
+    ASSERT(mConcatAxisID != 0);
+    // mCHW is the first input tensor
+    int numConcats = std::accumulate(mCHW.d, mCHW.d + mConcatAxisID - 1, 1, std::multiplies<int>());
+
+    // Num concats will be proportional to number of samples in a batch
+    if (!mIgnoreBatch)
     {
-        ASSERT(mConcatAxisID != 0);
-        // mCHW is the first input tensor
-        int numConcats = std::accumulate(mCHW.d, mCHW.d + mConcatAxisID - 1, 1, std::multiplies<int>());
-
-        // Num concats will be proportional to number of samples in a batch
-        if (!mIgnoreBatch)
-        {
-            numConcats *= batchSize;
-        }
-
-        auto* output = static_cast<float*>(outputs[0]);
-        int offset = 0;
-        for (int i = 0; i < mNumInputs; ++i)
-        {
-            const auto* input = static_cast<const float*>(inputs[i]);
-            for (int n = 0; n < numConcats; ++n)
-            {
-                auto status = cublasScopy(mCublas, mInputConcatAxis[i], input + n * mInputConcatAxis[i], 1,
-                    output + (n * mOutputConcatAxis + offset), 1);
-
-                if (status != CUBLAS_STATUS_SUCCESS)
-                {
-                    return STATUS_FAILURE;
-                }
-            }
-            offset += mInputConcatAxis[i];
-        }
-
-        return STATUS_SUCCESS;
+        numConcats *= batchSize;
     }
-    catch (const std::exception& e)
+
+    auto* output = static_cast<float*>(outputs[0]);
+    int offset = 0;
+    for (int i = 0; i < mNumInputs; ++i)
     {
-        caughtError(e);
+        const auto* input = static_cast<const float*>(inputs[i]);
+        for (int n = 0; n < numConcats; ++n)
+        {
+            CUBLASASSERT(cublasScopy(mCublas, mInputConcatAxis[i], input + n * mInputConcatAxis[i], 1,
+                output + (n * mOutputConcatAxis + offset), 1));
+        }
+        offset += mInputConcatAxis[i];
     }
-    return -1;
+
+    return STATUS_SUCCESS;
 }
 
-size_t FlattenConcat::getSerializationSize() const noexcept
+size_t FlattenConcat::getSerializationSize() const
 {
-    return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims) + (sizeof(decltype(mCopySize)::value_type) * mNumInputs);
+    return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims)
+        + (sizeof(decltype(mCopySize)::value_type) * mNumInputs);
 }
 
-void FlattenConcat::serialize(void* buffer) const noexcept
+void FlattenConcat::serialize(void* buffer) const
 {
     char* d = static_cast<char*>(buffer);
     const char* const a = d;
@@ -208,46 +194,39 @@ void FlattenConcat::serialize(void* buffer) const noexcept
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void FlattenConcat::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
     mCublas = cublasContext;
 }
 
 // Detach the plugin object from its execution context.
-void FlattenConcat::detachFromContext() noexcept {}
+void FlattenConcat::detachFromContext() {}
 
 // Return true if output tensor is broadcast across a batch.
-bool FlattenConcat::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+bool FlattenConcat::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool FlattenConcat::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool FlattenConcat::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
 
 // Set plugin namespace
-void FlattenConcat::setPluginNamespace(const char* pluginNamespace) noexcept
+void FlattenConcat::setPluginNamespace(const char* pluginNamespace)
 {
-    try
-    {
-        mPluginNamespace = pluginNamespace;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
+    mPluginNamespace = pluginNamespace;
 }
 
-const char* FlattenConcat::getPluginNamespace() const noexcept
+const char* FlattenConcat::getPluginNamespace() const
 {
     return mPluginNamespace.c_str();
 }
 
 // Return the DataType of the plugin output at the requested index
-DataType FlattenConcat::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+DataType FlattenConcat::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     ASSERT(index < 3);
     return DataType::kFLOAT;
@@ -255,87 +234,71 @@ DataType FlattenConcat::getOutputDataType(int index, const nvinfer1::DataType* i
 
 void FlattenConcat::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
-    try
+    ASSERT(nbOutputs == 1);
+    mCHW = inputDims[0];
+    mNumInputs = nbInputs;
+    ASSERT(inputDims[0].nbDims == 3);
+
+    mInputConcatAxis.resize(mNumInputs);
+    for (int i = 0; i < nbInputs; ++i)
     {
-        ASSERT(nbOutputs == 1);
-        mCHW = inputDims[0];
-        mNumInputs = nbInputs;
-        ASSERT(inputDims[0].nbDims == 3);
-
-        mInputConcatAxis.resize(mNumInputs);
-        for (int i = 0; i < nbInputs; ++i)
+        int flattenInput = 0;
+        ASSERT(inputDims[i].nbDims == 3);
+        if (mConcatAxisID != 1)
         {
-            int flattenInput = 0;
-            ASSERT(inputDims[i].nbDims == 3);
-            if (mConcatAxisID != 1)
-            {
-                ASSERT(inputDims[i].d[0] == inputDims[0].d[0]);
-            }
-            if (mConcatAxisID != 2)
-            {
-                ASSERT(inputDims[i].d[1] == inputDims[0].d[1]);
-            }
-            if (mConcatAxisID != 3)
-            {
-                ASSERT(inputDims[i].d[2] == inputDims[0].d[2]);
-            }
-            flattenInput = inputDims[i].d[0] * inputDims[i].d[1] * inputDims[i].d[2];
-            mInputConcatAxis[i] = flattenInput;
-            mOutputConcatAxis += mInputConcatAxis[i];
+            ASSERT(inputDims[i].d[0] == inputDims[0].d[0]);
         }
-
-        mCopySize.resize(mNumInputs);
-        for (int i = 0; i < nbInputs; ++i)
+        if (mConcatAxisID != 2)
         {
-            mCopySize[i] = inputDims[i].d[0] * inputDims[i].d[1] * inputDims[i].d[2] * sizeof(float);
+            ASSERT(inputDims[i].d[1] == inputDims[0].d[1]);
         }
+        if (mConcatAxisID != 3)
+        {
+            ASSERT(inputDims[i].d[2] == inputDims[0].d[2]);
+        }
+        flattenInput = inputDims[i].d[0] * inputDims[i].d[1] * inputDims[i].d[2];
+        mInputConcatAxis[i] = flattenInput;
+        mOutputConcatAxis += mInputConcatAxis[i];
     }
-    catch (const std::exception& e)
+
+    mCopySize.resize(mNumInputs);
+    for (int i = 0; i < nbInputs; ++i)
     {
-        caughtError(e);
+        mCopySize[i] = inputDims[i].d[0] * inputDims[i].d[1] * inputDims[i].d[2] * sizeof(float);
     }
 }
 
-bool FlattenConcat::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool FlattenConcat::supportsFormat(DataType type, PluginFormat format) const
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
+    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
 }
-const char* FlattenConcat::getPluginType() const noexcept
+const char* FlattenConcat::getPluginType() const
 {
     return "FlattenConcat_TRT";
 }
 
-const char* FlattenConcat::getPluginVersion() const noexcept
+const char* FlattenConcat::getPluginVersion() const
 {
     return "1";
 }
 
-void FlattenConcat::destroy() noexcept
+void FlattenConcat::destroy()
 {
     delete this;
 }
 
-IPluginV2Ext* FlattenConcat::clone() const noexcept
+IPluginV2Ext* FlattenConcat::clone() const
 {
-    try
-    {
-        auto* plugin = new FlattenConcat(
-            mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis.data(), mCopySize.data());
-        plugin->setPluginNamespace(mPluginNamespace.c_str());
-        return plugin;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    auto* plugin = new FlattenConcat(
+        mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis.data(), mCopySize.data());
+    plugin->setPluginNamespace(mPluginNamespace.c_str());
+    return plugin;
 }
 
 FlattenConcatPluginCreator::FlattenConcatPluginCreator()
 {
-    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("axis", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("ignoreBatch", nullptr, PluginFieldType::kINT32, 1));
 
@@ -343,66 +306,50 @@ FlattenConcatPluginCreator::FlattenConcatPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* FlattenConcatPluginCreator::getPluginName() const noexcept
+const char* FlattenConcatPluginCreator::getPluginName() const
 {
     return FLATTENCONCAT_PLUGIN_NAME;
 }
 
-const char* FlattenConcatPluginCreator::getPluginVersion() const noexcept
+const char* FlattenConcatPluginCreator::getPluginVersion() const
 {
     return FLATTENCONCAT_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* FlattenConcatPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* FlattenConcatPluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2Ext* FlattenConcatPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* FlattenConcatPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    try
+    const PluginField* fields = fc->fields;
+    for (int i = 0; i < fc->nbFields; ++i)
     {
-        const PluginField* fields = fc->fields;
-        for (int i = 0; i < fc->nbFields; ++i)
+        const char* attrName = fields[i].name;
+        if (!strcmp(attrName, "axis"))
         {
-            const char* attrName = fields[i].name;
-            if (!strcmp(attrName, "axis"))
-            {
-                ASSERT(fields[i].type == PluginFieldType::kINT32);
-                mConcatAxisID = *(static_cast<const int*>(fields[i].data));
-            }
-            if (!strcmp(attrName, "ignoreBatch"))
-            {
-                ASSERT(fields[i].type == PluginFieldType::kINT32);
-                mIgnoreBatch = *(static_cast<const bool*>(fields[i].data));
-            }
+            ASSERT(fields[i].type == PluginFieldType::kINT32);
+            mConcatAxisID = *(static_cast<const int*>(fields[i].data));
         }
+        if (!strcmp(attrName, "ignoreBatch"))
+        {
+            ASSERT(fields[i].type == PluginFieldType::kINT32);
+            mIgnoreBatch = *(static_cast<const bool*>(fields[i].data));
+        }
+    }
 
-        auto* plugin = new FlattenConcat(mConcatAxisID, mIgnoreBatch);
-        plugin->setPluginNamespace(mNamespace.c_str());
-        return plugin;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    auto* plugin = new FlattenConcat(mConcatAxisID, mIgnoreBatch);
+    plugin->setPluginNamespace(mNamespace.c_str());
+    return plugin;
 }
 
 IPluginV2Ext* FlattenConcatPluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+    const char* name, const void* serialData, size_t serialLength)
 {
-    try
-    {
-        // This object will be deleted when the network is destroyed, which will
-        // call Concat::destroy()
-        IPluginV2Ext* plugin = new FlattenConcat(serialData, serialLength);
-        plugin->setPluginNamespace(mNamespace.c_str());
-        return plugin;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    // This object will be deleted when the network is destroyed, which will
+    // call Concat::destroy()
+    IPluginV2Ext* plugin = new FlattenConcat(serialData, serialLength);
+    plugin->setPluginNamespace(mNamespace.c_str());
+    return plugin;
 }

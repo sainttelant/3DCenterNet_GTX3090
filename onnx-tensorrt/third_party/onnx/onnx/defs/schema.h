@@ -142,20 +142,6 @@ class OpSchema final {
     Variadic = 2,
   };
 
-  enum DifferentiationCategory : uint8_t {
-    // Whether this formal parameter is differentiable or not cannot
-    // be statically determined. It also covers variadic formal
-    // parameters which contain both of differentiable and
-    // non-differentiable variables.
-    Unknown = 0,
-    // This formal parameter is differentiable. That is, this formal
-    // parameter can be differentiable input of Gradient operator.
-    Differentiable = 1,
-    // This formal parameter is not differentiable. That is, this formal
-    // parameter can not be differentiable input of Gradient operator.
-    NonDifferentiable = 2
-  };
-
   // Formal parameter represenation, including input/output name, typeStr,
   // description, and type constraints.
   class FormalParameter final {
@@ -170,8 +156,7 @@ class OpSchema final {
         const std::string& description,
         FormalParameterOption param_option = Single,
         bool is_homogeneous = true,
-        int min_arity = 1,
-        DifferentiationCategory differentiation_category = Unknown)
+        int min_arity = 1)
         : name_(std::move(name)),
           type_set_(std::move(allowed_type_set)),
           type_str_(std::move(type_str)),
@@ -180,11 +165,7 @@ class OpSchema final {
 #endif
           param_option_(param_option),
           is_homogeneous_(is_homogeneous),
-          min_arity_(min_arity),
-          differentiation_category_(differentiation_category) {
-#ifdef __ONNX_NO_DOC_STRINGS
-      ONNX_UNUSED_PARAMETER(description);
-#endif
+          min_arity_(min_arity) {
     }
 
     explicit FormalParameter(
@@ -193,8 +174,7 @@ class OpSchema final {
         std::string type_str,
         FormalParameterOption param_option = Single,
         bool is_homogeneous = true,
-        int min_arity = 1,
-        DifferentiationCategory differentiation_category = Unknown)
+        int min_arity = 1)
         : name_(std::move(name)),
           type_str_(std::move(type_str)),
 #ifndef __ONNX_NO_DOC_STRINGS
@@ -202,11 +182,7 @@ class OpSchema final {
 #endif
           param_option_(param_option),
           is_homogeneous_(is_homogeneous),
-          min_arity_(min_arity),
-          differentiation_category_(differentiation_category) {
-#ifdef __ONNX_NO_DOC_STRINGS
-      ONNX_UNUSED_PARAMETER(description);
-#endif
+          min_arity_(min_arity) {
     }
 
     // Get formal parameter name.
@@ -229,9 +205,6 @@ class OpSchema final {
 
     // Get minimum arity. Applicable only in the Variadic case.
     int GetMinArity() const;
-
-    // Get the differentiation property of this formal parameter.
-    DifferentiationCategory GetDifferentiationCategory() const;
 
    private:
     friend class OpSchema;
@@ -262,11 +235,6 @@ class OpSchema final {
 
     // Minimum number of parameters expected. Applicable only for Variadic.
     int min_arity_;
-
-    // True if this parameter can be an differentiable inputs of Gradient.
-    // Otherwise, using this parameter as an differentiable inputs of Gradient
-    // is prohibited.
-    DifferentiationCategory differentiation_category_;
   };
 
   enum class SupportType : uint8_t {
@@ -529,8 +497,7 @@ class OpSchema final {
       std::string type_str,
       FormalParameterOption param_option = Single,
       bool is_homogeneous = true,
-      int min_arity = 1,
-      DifferentiationCategory differentiation_category = Unknown);
+      int min_arity = 1);
 
   // Non-STL wrapper to reduce binary size
   OpSchema& Input(
@@ -540,8 +507,7 @@ class OpSchema final {
       const char* type_str,
       FormalParameterOption param_option = Single,
       bool is_homogeneous = true,
-      int min_arity = 1,
-      DifferentiationCategory differentiation_category = Unknown);
+      int min_arity = 1);
 
   OpSchema& Output(
       int n,
@@ -550,8 +516,7 @@ class OpSchema final {
       std::string type_str,
       FormalParameterOption param_option = Single,
       bool is_homogeneous = true,
-      int min_arity = 1,
-      DifferentiationCategory differentiation_category = Unknown);
+      int min_arity = 1);
 
   // Non-STL wrapper to reduce binary size
   OpSchema& Output(
@@ -561,8 +526,7 @@ class OpSchema final {
       const char* type_str,
       FormalParameterOption param_option = Single,
       bool is_homogeneous = true,
-      int min_arity = 1,
-      DifferentiationCategory differentiation_category = Unknown);
+      int min_arity = 1);
 
   OpSchema& TypeConstraint(
       std::string type_str,
@@ -578,20 +542,6 @@ class OpSchema final {
   // Convenience members for types
 
   // All high-precision numeric types.
-  static const std::vector<std::string>&
-  numeric_types_for_math_reduction_with_bfloat() {
-    static const std::vector<std::string>
-        numeric_types_for_math_reduction_with_bfloat = {"tensor(uint32)",
-                                                        "tensor(uint64)",
-                                                        "tensor(int32)",
-                                                        "tensor(int64)",
-                                                        "tensor(float16)",
-                                                        "tensor(float)",
-                                                        "tensor(double)",
-                                                        "tensor(bfloat16)"};
-    return numeric_types_for_math_reduction_with_bfloat;
-  }
-
   static const std::vector<std::string>& numeric_types_for_math_reduction() {
     static const std::vector<std::string> numeric_types_for_math_reduction = {
         "tensor(uint32)",
@@ -602,23 +552,6 @@ class OpSchema final {
         "tensor(float)",
         "tensor(double)"};
     return numeric_types_for_math_reduction;
-  }
-
-  static const std::vector<std::string>& all_numeric_types_with_bfloat() {
-    static const std::vector<std::string> all_numeric_types_with_bfloat = {
-        "tensor(uint8)",
-        "tensor(uint16)",
-        "tensor(uint32)",
-        "tensor(uint64)",
-        "tensor(int8)",
-        "tensor(int16)",
-        "tensor(int32)",
-        "tensor(int64)",
-        "tensor(float16)",
-        "tensor(float)",
-        "tensor(double)",
-        "tensor(bfloat16)"};
-    return all_numeric_types_with_bfloat;
   }
 
   static const std::vector<std::string>& all_numeric_types() {
@@ -671,27 +604,6 @@ class OpSchema final {
         "tensor(complex64)",
         "tensor(complex128)"};
     return all_tensor_types;
-  }
-
-  static const std::vector<std::string>& all_tensor_types_with_bfloat() {
-    static const std::vector<std::string> all_tensor_types_with_bfloat = {
-        "tensor(uint8)",
-        "tensor(uint16)",
-        "tensor(uint32)",
-        "tensor(uint64)",
-        "tensor(int8)",
-        "tensor(int16)",
-        "tensor(int32)",
-        "tensor(int64)",
-        "tensor(bfloat16)",
-        "tensor(float16)",
-        "tensor(float)",
-        "tensor(double)",
-        "tensor(string)",
-        "tensor(bool)",
-        "tensor(complex64)",
-        "tensor(complex128)"};
-    return all_tensor_types_with_bfloat;
   }
 
   static const std::vector<std::string>& all_tensor_sequence_types() {
@@ -858,61 +770,35 @@ class ISchemaRegistry {
  */
 class OpSchemaRegistry final : public ISchemaRegistry {
  public:
-  // A singleton class to store domain to min/max op_set version map, as well as
-  // domain to last-release op_set version map.
+  // A singleton class to store domain to min/max op_set version map.
   class DomainToVersionRange final {
    public:
     DomainToVersionRange() {
       // Increase the highest version when you make BC-breaking changes to the
       // operator schema on specific domain. Update the lowest version when it's
       // determined to remove too old version history.
-      map_[ONNX_DOMAIN] = std::make_pair(1, 13);
+      map_[ONNX_DOMAIN] = std::make_pair(1, 12);
       map_[AI_ONNX_ML_DOMAIN] = std::make_pair(1, 2);
       map_[AI_ONNX_TRAINING_DOMAIN] = std::make_pair(1, 1);
-      // ONNX's preview domain contains operators subject to change, so
-      // versining is not meaningful and that domain should have only one
-      // version.
+      // ONNX's preview domain contains operators subject to change, so versining
+      // is not meaningful and that domain should have only one version.
       map_[AI_ONNX_PREVIEW_TRAINING_DOMAIN] = std::make_pair(1, 1);
-      // Version corresponding last release of ONNX. Update this to match with
-      // the max version above in a *release* version of ONNX. But in other
-      // versions, the max version may be ahead of the last-release-version.
-      last_release_version_map_[ONNX_DOMAIN] = 13;
-      last_release_version_map_[AI_ONNX_ML_DOMAIN] = 2;
-      last_release_version_map_[AI_ONNX_TRAINING_DOMAIN] = 1;
-      last_release_version_map_[AI_ONNX_PREVIEW_TRAINING_DOMAIN] = 1;
     }
 
     const std::unordered_map<std::string, std::pair<int, int>>& Map() const {
       return map_;
     }
 
-    const std::unordered_map<std::string, int>& LastReleaseVersionMap() const {
-      return last_release_version_map_;
-    }
-
     // Add customized domain to min/max version.
     // Onnx partners are able to use onnx operator schema api to
     // register customized op in their own domain.
-    // Can optionally specify last_release_version (to make it similar to
-    // standard ONNX domains as above). Custom-domains are free to interpret
-    // this as appropriate (that is, as relative to releases of custom-domain
-    // as opposed to ONNX releases).
     void AddDomainToVersion(
         const std::string& domain,
         int min_version,
-        int max_version,
-        int last_release_version = -1) {
+        int max_version) {
       std::lock_guard<std::mutex> lock(mutex_);
       assert(map_.end() == map_.find(domain));
       map_[domain] = std::make_pair(min_version, max_version);
-      // If a last-release-version is not explicitly specified, use max as
-      // last-release-version.
-      if (last_release_version == -1)
-        last_release_version = max_version;
-      assert(
-          last_release_version_map_.end() ==
-          last_release_version_map_.find(domain));
-      last_release_version_map_[domain] = last_release_version;
     }
 
     static DomainToVersionRange& Instance();
@@ -920,11 +806,6 @@ class OpSchemaRegistry final : public ISchemaRegistry {
    private:
     // Key: domain. Value: <lowest version, highest version> pair.
     std::unordered_map<std::string, std::pair<int, int>> map_;
-
-    // Key: domain. Value: most recent release opset version. Note that
-    // the highest opset version may be ahead of the most recent release's opset
-    // version.
-    std::unordered_map<std::string, int> last_release_version_map_;
 
     std::mutex mutex_;
   };
@@ -1106,7 +987,7 @@ OpSchema GetOpSchema();
       name, OnnxTraining, AI_ONNX_TRAINING_DOMAIN, ver, true, impl)
 
 #define ONNX_PREVIEW_TRAINING_OPERATOR_SET_SCHEMA(name, ver, impl) \
-  ONNX_OPERATOR_SET_SCHEMA_EX(                                     \
+  ONNX_OPERATOR_SET_SCHEMA_EX(                                 \
       name, OnnxPreview, AI_ONNX_PREVIEW_TRAINING_DOMAIN, ver, true, impl)
 
 // Defines specialization of GetOpSchema for a class whose name is determined

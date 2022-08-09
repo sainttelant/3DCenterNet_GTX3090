@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 """
-This script uses a prebuilt TensorRT BERT QA Engine to answer a question
-based on the provided passage. It additionally includes an interactive mode
+This script uses a prebuilt TensorRT BERT QA Engine to answer a question 
+based on the provided passage. It additionally includes an interactive mode 
 where multiple questions can be asked.
 """
 
@@ -120,9 +119,9 @@ if __name__ == '__main__':
 
     # The first context created will use the 0th profile. A new context must be created
     # for each additional profile needed. Here, we only use batch size 1, thus we only need the first profile.
-
+        
     # We always use batch size 1.
-    # Specify input shapes as (max_seq_length, 1).
+    # Specify input shapes as (max_seq_length, 1). 
     # These must be within the min/max bounds of the active profile (0th profile in this case)
     # Note that input shapes can be specified on a per-inference basis, but in this case, we only have a single shape.
     bert = infer_c.bert_inf(args.engine, 1, max_seq_length, args.enable_graph)
@@ -149,21 +148,13 @@ if __name__ == '__main__':
             eval_time_elapsed += (time.time() - eval_start_time)
 
 
-            # Data Post-processing
-            if len(h_output.shape) == 1:
-                S = int(h_output.shape[0] / 2)
+            for index, batch in enumerate(h_output):
+                # Data Post-processing
                 networkOutputs.append(_NetworkOutput(
-                    start_logits = np.array(h_output[0:S]),
-                    end_logits = np.array(h_output[S:S*2]),
+                    start_logits = np.array(batch.squeeze()[:, 0]),
+                    end_logits = np.array(batch.squeeze()[:, 1]),
                     feature_index = feature_index
                     ))
-            else:
-                for index, batch in enumerate(h_output):
-                    networkOutputs.append(_NetworkOutput(
-                        start_logits = np.array(batch.squeeze()[:, 0]),
-                        end_logits = np.array(batch.squeeze()[:, 1]),
-                        feature_index = feature_index
-                        ))
 
         eval_time_elapsed /= len(features)
 

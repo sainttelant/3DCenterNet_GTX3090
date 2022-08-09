@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@ namespace bert
 
 namespace
 {
-const char* GELU_PLUGIN_VERSION{"1"};
-const char* GELU_PLUGIN_NAME{"CustomGeluPluginDynamic"};
+static const char* GELU_PLUGIN_VERSION{"1"};
+static const char* GELU_PLUGIN_NAME{"CustomGeluPluginDynamic"};
 } // namespace
 
 // Static class fields initialization
@@ -68,28 +68,28 @@ GeluPluginDynamic::GeluPluginDynamic(const std::string name, const void* data, s
 
     if (mHasBias)
     {
-        ASSERT(mLd > 0);
+        assert(mLd > 0);
         const char* d = static_cast<const char*>(data);
         make_cuda_shared(mBiasDev, deserToDev<char>(d, mLd * getElementSize(mType)));
     }
 }
 // IPluginV2DynamicExt Methods
-nvinfer1::IPluginV2DynamicExt* GeluPluginDynamic::clone() const noexcept
+nvinfer1::IPluginV2DynamicExt* GeluPluginDynamic::clone() const
 {
     gLogVerbose << "GeluPluginDynamic clone\n";
-    auto* plugin = new GeluPluginDynamic(*this);
+    auto plugin = new GeluPluginDynamic(*this);
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }
 
 nvinfer1::DimsExprs GeluPluginDynamic::getOutputDimensions(
-    int outputIndex, const nvinfer1::DimsExprs* inputs, int nbInputs, nvinfer1::IExprBuilder& exprBuilder) noexcept
+    int outputIndex, const nvinfer1::DimsExprs* inputs, int nbInputs, nvinfer1::IExprBuilder& exprBuilder)
 {
     return inputs[0];
 }
 
 bool GeluPluginDynamic::supportsFormatCombination(
-    int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
+    int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs)
 {
 
     const PluginTensorDesc& input = inOut[0];
@@ -106,20 +106,20 @@ bool GeluPluginDynamic::supportsFormatCombination(
 }
 
 void GeluPluginDynamic::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
-    const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) noexcept
+    const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs)
 {
     gLogVerbose << "GeluPluginDynamic configurePlugin\n";
     assert(mType == in[0].desc.type);
 }
 
 size_t GeluPluginDynamic::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
-    const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const noexcept
+    const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const
 {
     return 0;
 }
 int GeluPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
     const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace,
-    cudaStream_t stream) noexcept
+    cudaStream_t stream)
 {
     const int inputVolume = volume(inputDesc[0].dims);
 
@@ -136,7 +136,7 @@ int GeluPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
             const float* bias = static_cast<float*>(mBiasDev.get());
             const int cols = inputVolume / mLd;
             const int rows = mLd;
-            status = computeGeluBias(output, input, bias, rows, cols, stream);
+            computeGeluBias(output, input, bias, rows, cols, stream);
         }
         else
         {
@@ -154,7 +154,7 @@ int GeluPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
             const half* bias = static_cast<half*>(mBiasDev.get());
             const int cols = inputVolume / mLd;
             const int rows = mLd;
-            status = computeGeluBias(output, input, bias, rows, cols, stream);
+            computeGeluBias(output, input, bias, rows, cols, stream);
         }
         else
         {
@@ -163,7 +163,7 @@ int GeluPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
     }
     else
     {
-        return STATUS_FAILURE;
+        assert(false);
     }
 
     return status;
@@ -171,7 +171,7 @@ int GeluPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
 
 // IPluginV2Ext Methods
 nvinfer1::DataType GeluPluginDynamic::getOutputDataType(
-    int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+    int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     assert(index == 0);
     assert(inputTypes[0] == DataType::kFLOAT || inputTypes[0] == DataType::kHALF);
@@ -180,40 +180,40 @@ nvinfer1::DataType GeluPluginDynamic::getOutputDataType(
 
 // IPluginV2 Methods
 
-const char* GeluPluginDynamic::getPluginType() const noexcept
+const char* GeluPluginDynamic::getPluginType() const
 {
     return GELU_PLUGIN_NAME;
 }
 
-const char* GeluPluginDynamic::getPluginVersion() const noexcept
+const char* GeluPluginDynamic::getPluginVersion() const
 {
     return GELU_PLUGIN_VERSION;
 }
 
-int GeluPluginDynamic::getNbOutputs() const noexcept
+int GeluPluginDynamic::getNbOutputs() const
 {
     return 1;
 }
 
-int GeluPluginDynamic::initialize() noexcept
+int GeluPluginDynamic::initialize()
 {
     gLogVerbose << "GeluPluginDynamic initalize\n";
     return 0;
 }
 
-void GeluPluginDynamic::terminate() noexcept
+void GeluPluginDynamic::terminate()
 {
     gLogVerbose << "GeluPluginDynamic terminate\n";
 }
 
-size_t GeluPluginDynamic::getSerializationSize() const noexcept
+size_t GeluPluginDynamic::getSerializationSize() const
 {
     const size_t wordSize = getElementSize(mType);
     const size_t biasSize = mHasBias ? mLd * wordSize : 0;
     return sizeof(mType) + sizeof(mHasBias) + sizeof(mLd) + biasSize;
 }
 
-void GeluPluginDynamic::serialize(void* buffer) const noexcept
+void GeluPluginDynamic::serialize(void* buffer) const
 {
     serialize_value(&buffer, mType);
     serialize_value(&buffer, mLd);
@@ -226,7 +226,7 @@ void GeluPluginDynamic::serialize(void* buffer) const noexcept
     }
 }
 
-void GeluPluginDynamic::destroy() noexcept
+void GeluPluginDynamic::destroy()
 {
     gLogVerbose << "GeluPluginDynamic destroy\n";
     // This gets called when the network containing plugin is destroyed
@@ -234,12 +234,12 @@ void GeluPluginDynamic::destroy() noexcept
     delete this;
 }
 
-void GeluPluginDynamic::setPluginNamespace(const char* libNamespace) noexcept
+void GeluPluginDynamic::setPluginNamespace(const char* libNamespace)
 {
     mNamespace = libNamespace;
 }
 
-const char* GeluPluginDynamic::getPluginNamespace() const noexcept
+const char* GeluPluginDynamic::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }
@@ -253,82 +253,65 @@ GeluPluginDynamicCreator::GeluPluginDynamicCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* GeluPluginDynamicCreator::getPluginName() const noexcept
+const char* GeluPluginDynamicCreator::getPluginName() const
 {
     return GELU_PLUGIN_NAME;
 }
 
-const char* GeluPluginDynamicCreator::getPluginVersion() const noexcept
+const char* GeluPluginDynamicCreator::getPluginVersion() const
 {
     return GELU_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* GeluPluginDynamicCreator::getFieldNames() noexcept
+const PluginFieldCollection* GeluPluginDynamicCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2* GeluPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2* GeluPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    try
+    gLogVerbose << "GeluPluginDynamicCreator createPlugin\n";
+
+    Weights bias{DataType::kFLOAT, nullptr, 0};
+    int typeId = -1;
+    for (int i = 0; i < fc->nbFields; i++)
     {
-        gLogVerbose << "GeluPluginDynamicCreator createPlugin\n";
+        std::string field_name(fc->fields[i].name);
 
-        Weights bias{DataType::kFLOAT, nullptr, 0};
-        int typeId = -1;
-        for (int i = 0; i < fc->nbFields; i++)
+        if (field_name.compare("type_id") == 0)
         {
-            std::string field_name(fc->fields[i].name);
-
-            if (field_name.compare("type_id") == 0)
-            {
-                typeId = *static_cast<const int*>(fc->fields[i].data);
-            }
-            if (field_name.compare("bias") == 0)
-            {
-                bias.values = fc->fields[i].data;
-                bias.count = fc->fields[i].length;
-                bias.type = fieldTypeToDataType(fc->fields[i].type);
-            }
+            typeId = *static_cast<const int*>(fc->fields[i].data);
         }
-
-        if (typeId < 0 || typeId > 3)
+        if (field_name.compare("bias") == 0)
         {
-            gLogError << "GeluPluginDynamicCreator: invalid typeId " << typeId << std::endl;
-            return nullptr;
+            bias.values = fc->fields[i].data;
+            bias.count = fc->fields[i].length;
+            bias.type = fieldTypeToDataType(fc->fields[i].type);
         }
-
-        return new GeluPluginDynamic(name, static_cast<DataType>(typeId), bias);
     }
-    catch (const std::exception& e)
+
+    if (typeId < 0 || typeId > 3)
     {
-        caughtError(e);
+        gLogError << "GeluPluginDynamicCreator: invalid typeId " << typeId << std::endl;
+        return nullptr;
     }
-    return nullptr;
+
+    return new GeluPluginDynamic(name, static_cast<DataType>(typeId), bias);
 }
 
-IPluginV2* GeluPluginDynamicCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2* GeluPluginDynamicCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     // This object will be deleted when the network is destroyed, which will
     // call GeluPluginDynamic::destroy()
-    try
-    {
-        return new GeluPluginDynamic(name, serialData, serialLength);
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    return new GeluPluginDynamic(name, serialData, serialLength);
 }
 
-void GeluPluginDynamicCreator::setPluginNamespace(const char* libNamespace) noexcept
+void GeluPluginDynamicCreator::setPluginNamespace(const char* libNamespace)
 {
     mNamespace = libNamespace;
 }
 
-const char* GeluPluginDynamicCreator::getPluginNamespace() const noexcept
+const char* GeluPluginDynamicCreator::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }

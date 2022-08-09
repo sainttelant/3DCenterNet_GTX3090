@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-function(find_library_create_target target_name lib libtype hints)
+macro(find_library_create_target target_name lib libtype hints)
     message(STATUS "========================= Importing and creating target ${target_name} ==========================")
     message(STATUS "Looking for library ${lib}")
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -26,5 +26,4 @@ function(find_library_create_target target_name lib libtype hints)
     add_library(${target_name} ${libtype} IMPORTED)
     set_property(TARGET ${target_name} PROPERTY IMPORTED_LOCATION ${${lib}_LIB_PATH})
     message(STATUS "==========================================================================================")
-endfunction()
-message(STATUS "INCLUDE FIND_LIBRARY_CREATE=============\n")
+endmacro()

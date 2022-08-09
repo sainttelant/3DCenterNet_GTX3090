@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +43,8 @@ ILayer* parseCrop(INetworkDefinition& network, const trtcaffe::LayerParameter& m
     // ONLY IMPLEMENT SPATIAL CROPPING
     // IF CROP LAYER IS NOT SPATIAL CROP, ABORT
     const trtcaffe::CropParameter& p = msg.crop_param();
-    Dims3 inputDims = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions());
-    Dims3 refDims = parserutils::getCHW(tensors[msg.bottom(1)]->getDimensions());
+    DimsCHW inputDims = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions());
+    DimsCHW refDims = parserutils::getCHW(tensors[msg.bottom(1)]->getDimensions());
     bool hasAxis = p.has_axis();         // optional parameter
     int axis = hasAxis ? p.axis() : 2;   // default is 2 - spatial crop
     axis = (axis < 0) ? 4 + axis : axis; // axis negative number correction
@@ -108,11 +107,11 @@ ILayer* parseCrop(INetworkDefinition& network, const trtcaffe::LayerParameter& m
     // - ( inputDims.w() - refDims.w() - offsetWidth ) = -inputDims.w() + refDims.w() + offsetWidth
     int prePadHeight = -offsetHeight;
     int prePadWidth = -offsetWidth;
-    int postPadHeight = -inputDims.d[1] + refDims.d[1] + offsetHeight;
-    int postPadWidth = -inputDims.d[2] + refDims.d[2] + offsetWidth;
+    int postPadHeight = -inputDims.h() + refDims.h() + offsetHeight;
+    int postPadWidth = -inputDims.w() + refDims.w() + offsetWidth;
 
-    Dims prePadding = parserutils::toDims(prePadHeight, prePadWidth);
-    Dims postPadding = parserutils::toDims(postPadHeight, postPadWidth);
-    return network.addPaddingNd(*tensors[msg.bottom(0)], prePadding, postPadding);
+    DimsHW prePadding = DimsHW{prePadHeight, prePadWidth};
+    DimsHW postPadding = DimsHW{postPadHeight, postPadWidth};
+    return network.addPadding(*tensors[msg.bottom(0)], prePadding, postPadding);
 }
 } //namespace nvcaffeparser1

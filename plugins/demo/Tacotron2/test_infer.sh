@@ -1,6 +1,5 @@
 #!/bin/bash
-#
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 BATCH_SIZE=1
 INPUT_LENGTH=128
 NUM_ITERS=1003 # extra 3 iterations for warmup
-TACOTRON2_CKPT="nvidia_tacotron2pyt_fp16_20190427"
-WAVEGLOW_CKPT="nvidia_waveglow256pyt_fp16"
+TACOTRON2_CKPT="tacotron2_1032590_6000_amp"
+WAVEGLOW_CKPT="waveglow_1076430_14000_amp"
 RUN_MODE="" # = fp32
 LOG_RUN_MODE="gpu_fp32"
 TEST_PROGRAM="test_infer.py"
@@ -93,7 +91,7 @@ TMP_LOGFILE=tmp_log_${LOG_SUFFIX}.log
 LOGFILE=log_${LOG_SUFFIX}.log
 
 
-if [ "$TEST_PROGRAM" = "tensorrt/test_infer_trt.py" ]
+if [ "$TEST_PROGRAM" = "trt/test_infer_trt.py" ]
 then
     TACOTRON2_PARAMS="--encoder $ENCODER_CKPT --decoder $DECODER_CKPT --postnet $POSTNET_CKPT"
 else
@@ -101,7 +99,7 @@ else
 fi
 
 set -x
-python3 $TEST_PROGRAM \
+python $TEST_PROGRAM \
        $TACOTRON2_PARAMS \
        --waveglow $WAVEGLOW_CKPT \
        --batch-size $BATCH_SIZE \

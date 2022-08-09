@@ -5,7 +5,6 @@
 #include "onnx/onnxifi_loader.h"
 #include "onnx/onnxifi_utils.h"
 #include "onnx/string_utils.h"
-#include "onnx/onnx-data_pb.h"
 
 #include "gtest/gtest.h"
 namespace ONNX_NAMESPACE {
@@ -59,12 +58,7 @@ struct UnsolvedTestCase {
  */
 struct ResolvedTestData {
   std::vector<ONNX_NAMESPACE::TensorProto> inputs_;
-  std::vector<ONNX_NAMESPACE::SequenceProto> seq_inputs_;
-  std::vector<ONNX_NAMESPACE::MapProto> map_inputs_;
-  
   std::vector<ONNX_NAMESPACE::TensorProto> outputs_;
-  std::vector<ONNX_NAMESPACE::SequenceProto> seq_outputs_;
-  std::vector<ONNX_NAMESPACE::MapProto> map_outputs_;
 };
 
 /**

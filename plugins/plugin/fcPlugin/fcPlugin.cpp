@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ namespace bert
 // plugin specific constants
 namespace
 {
-const char* FC_VERSION{"1"};
-const char* FC_NAME{"CustomFCPluginDynamic"};
+static const char* FC_VERSION{"1"};
+static const char* FC_NAME{"CustomFCPluginDynamic"};
 } // namespace
 
 // Static class fields initialization
@@ -59,7 +59,11 @@ static void printPerfStructure(const customMatmulPerf_t& perf, int const& m, int
     double timeAvg = (perf.time * 1e-3) / kernelRepeats; // Convert to seconds, then divide by loops
     double gflop = (2 * static_cast<unsigned long long int>(m * n) * k) * 1e-9; // Real
 
-    gLogVerbose << "Algo=" << p.algoId << " Tile=" << p.tile << " (" << matmulTileName[p.tile] << ") K=" << p.numSplitsK << " Red.Sch.=" << p.reductionScheme << " Swiz=" << p.swizzle << " Cust=" << p.customOption << " Stat=" << perf.status << " Time=" << perf.time << " WSbytes=" << perf.workspaceSize << " math=" << p.mathMode << " waves=" << perf.wavesCount << "GFlops=" << (gflop / timeAvg) << std::endl;
+    gLogVerbose << "Algo=" << p.algoId << " Tile=" << p.tile << " (" << matmulTileName[p.tile] << ") K=" << p.numSplitsK
+                << " Red.Sch.=" << p.reductionScheme << " Swiz=" << p.swizzle << " Cust=" << p.customOption
+                << " Stat=" << perf.status << " Time=" << perf.time << " WSbytes=" << perf.workspaceSize
+                << " math=" << p.mathMode << " waves=" << perf.wavesCount << "GFlops=" << (gflop / timeAvg)
+                << std::endl;
 }
 
 static inline bool time_compare(const customMatmulPerf_t& perf_a, const customMatmulPerf_t& perf_b)
@@ -332,7 +336,7 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
     // for (int i = 0; i < perfResults.size(); i++){
     for (int i = 0; i < printAlgos; i++)
     {
-        if (perfResults[i].time == 1000000.F)
+        if (perfResults[i].time == 1000000.f)
             break;
         printPerfStructure(perfResults[i], m, n, k);
     }
@@ -383,61 +387,44 @@ FCPluginDynamic::FCPluginDynamic(const std::string name, const void* data, size_
 }
 
 // IPluginV2DynamicExt Methods
-IPluginV2DynamicExt* FCPluginDynamic::clone() const noexcept
+IPluginV2DynamicExt* FCPluginDynamic::clone() const
 {
-    try
-    {
-        gLogVerbose << "FCPluginDynamic clone\n";
+    gLogVerbose << "FCPluginDynamic clone\n";
 
-        auto* p = new FCPluginDynamic(mLayerName, mType, mOutDim, mW);
-        memcpy(p->mAlgo.data, mAlgo.data, sizeof(mAlgo.data));
-        p->setPluginNamespace(mNamespace.c_str());
+    auto p = new FCPluginDynamic(mLayerName, mType, mOutDim, mW);
+    memcpy(p->mAlgo.data, mAlgo.data, sizeof(mAlgo.data));
+    p->setPluginNamespace(mNamespace.c_str());
 
-        return p;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    return p;
 }
 
 void FCPluginDynamic::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, nvinfer1::IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, nvinfer1::IGpuAllocator* gpuAllocator)
 {
     mLtContext.attach();
 }
 
-void FCPluginDynamic::detachFromContext() noexcept
+void FCPluginDynamic::detachFromContext()
 {
     mLtContext.detach();
 }
 
 DimsExprs FCPluginDynamic::getOutputDimensions(
-    int outputIndex, const DimsExprs* inputs, int nbInputs, IExprBuilder& exprBuilder) noexcept
+    int outputIndex, const DimsExprs* inputs, int nbInputs, IExprBuilder& exprBuilder)
 {
-    try
-    {
-        assert(nbInputs == 1);
-        assert(outputIndex == 0);
-        DimsExprs ret;
-        ret.nbDims = 5;
-        ret.d[0] = inputs[0].d[0];
-        ret.d[1] = inputs[0].d[1];
-        ret.d[2] = exprBuilder.constant(mOutDim);
-        ret.d[3] = exprBuilder.constant(1);
-        ret.d[4] = exprBuilder.constant(1);
-        return ret;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return DimsExprs{};
+    assert(nbInputs == 1);
+    assert(outputIndex == 0);
+    DimsExprs ret;
+    ret.nbDims = 5;
+    ret.d[0] = inputs[0].d[0];
+    ret.d[1] = inputs[0].d[1];
+    ret.d[2] = exprBuilder.constant(mOutDim);
+    ret.d[3] = exprBuilder.constant(1);
+    ret.d[4] = exprBuilder.constant(1);
+    return ret;
 }
 
-bool FCPluginDynamic::supportsFormatCombination(
-    int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
+bool FCPluginDynamic::supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs)
 {
     assert(nbInputs == 1);
     assert(nbOutputs == 1);
@@ -454,154 +441,134 @@ bool FCPluginDynamic::supportsFormatCombination(
 }
 
 void FCPluginDynamic::configurePlugin(
-    const DynamicPluginTensorDesc* inputs, int nbInputs, const DynamicPluginTensorDesc* outputs, int nbOutputs) noexcept
+    const DynamicPluginTensorDesc* inputs, int nbInputs, const DynamicPluginTensorDesc* outputs, int nbOutputs)
 {
-    try
+    // Validate input arguments
+    assert(nbOutputs == 1);
+    assert(nbInputs == 1);
+    assert(mType == inputs[0].desc.type);
+    const auto& inDims0 = inputs[0].desc.dims;
+
+    assert(inDims0.nbDims == 5);
+    mK = inDims0.d[HDIM]; // hiddensize
+    // assert(hiddenSize * mOutDim == mNumParams);
+    assert(inDims0.d[3] == 1);
+    assert(inDims0.d[4] == 1);
+
+    // m and k are mOutDim
+    // n is B*S
+    const int S = inputs->max.d[SDIM];
+    const int B = inputs->max.d[BDIM];
+
+    mNmax = S * B;
+
+    if (mType == DataType::kFLOAT)
     {
-        // Validate input arguments
-        assert(nbOutputs == 1);
-        assert(nbInputs == 1);
-        assert(mType == inputs[0].desc.type);
-        const auto& inDims0 = inputs[0].desc.dims;
+        Gemm<float> g(mOutDim, mNmax, mK, false, false);
+        mLtContext.create(g, maxWorkspaceBytes);
+    }
+    else if (mType == DataType::kHALF)
+    {
+        Gemm<half> g(mOutDim, mNmax, mK, false, false);
+        mLtContext.create(g, maxWorkspaceBytes);
+    }
+    else
+    {
+        gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType)
+                  << std::endl;
+        assert(false);
+    }
 
-        assert(inDims0.nbDims == 5);
-        mK = inDims0.d[HDIM]; // hiddensize
-        // assert(hiddenSize * mOutDim == mNumParams);
-        assert(inDims0.d[3] == 1);
-        assert(inDims0.d[4] == 1);
+    gLogVerbose << "FCPluginDynamic configurePlugin m=" << mOutDim << ", n=" << mNmax << ", k=" << mK << std::endl;
 
-        // m and k are mOutDim
-        // n is B*S
-        const int S = inputs->max.d[SDIM];
-        const int B = inputs->max.d[BDIM];
-
-        mNmax = S * B;
-
-        // Cleanup LtContext descriptors before creating new ones.
-        mLtContext.destroy();
-
+    size_t actualWorkspace = 0;
+    if (mAlgo.data[0] == 0 && memcmp(mAlgo.data, mAlgo.data + 1, sizeof(mAlgo.data) - sizeof(mAlgo.data[0])) == 0)
+    {
+        gLogVerbose << "FCPluginDynamic gemmSearch\n";
         if (mType == DataType::kFLOAT)
         {
-            Gemm<float> g(mOutDim, mNmax, mK, false, false);
-            mLtContext.create(g, maxWorkspaceBytes);
+            mAlgo = gemmSearch<float>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
         }
         else if (mType == DataType::kHALF)
         {
-            Gemm<half> g(mOutDim, mNmax, mK, false, false);
-            mLtContext.create(g, maxWorkspaceBytes);
+            mAlgo = gemmSearch<half>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
         }
-        else
-        {
-            gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType)
-                      << std::endl;
-            assert(false);
-        }
-
-        gLogVerbose << "FCPluginDynamic configurePlugin m=" << mOutDim << ", n=" << mNmax << ", k=" << mK << std::endl;
-
-        size_t actualWorkspace = 0;
-        if (mAlgo.data[0] == 0 && memcmp(mAlgo.data, mAlgo.data + 1, sizeof(mAlgo.data) - sizeof(mAlgo.data[0])) == 0)
-        {
-            gLogVerbose << "FCPluginDynamic gemmSearch\n";
-            if (mType == DataType::kFLOAT)
-            {
-                mAlgo = gemmSearch<float>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
-            }
-            else if (mType == DataType::kHALF)
-            {
-                mAlgo = gemmSearch<half>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
-            }
-        }
-
-        AlgoProps p;
-        p.populate(mAlgo);
-
-        if (mType == DataType::kFLOAT && p.mathMode == 1)
-        {
-            gLogWarning << "cuBLAS might use mixed precision instead of FP32" << std::endl;
-        }
-
-        if (mType == DataType::kHALF && p.mathMode == 0)
-        {
-            gLogWarning << "TensorCore support was not selected" << std::endl;
-        }
-
-        gLogVerbose << "FCPluginDynamic configuration Algo=" << p.algoId << " Tile=" << p.tile << " ("
-                    << matmulTileName[p.tile] << ") K=" << p.numSplitsK << " Red.Sch.=" << p.reductionScheme
-                    << " Swiz=" << p.swizzle << " Cust=" << p.customOption << " mathMode=" << p.mathMode
-                    << " ws=" << actualWorkspace << std::endl;
     }
-    catch (const std::exception& e)
+
+    AlgoProps p;
+    p.populate(mAlgo);
+
+    if (mType == DataType::kFLOAT && p.mathMode == 1)
     {
-        caughtError(e);
+        gLogWarning << "cuBLAS might use mixed precision instead of FP32" << std::endl;
     }
+
+    if (mType == DataType::kHALF && p.mathMode == 0)
+    {
+        gLogWarning << "TensorCore support was not selected" << std::endl;
+    }
+
+    gLogVerbose << "FCPluginDynamic configuration Algo=" << p.algoId << " Tile=" << p.tile << " ("
+                << matmulTileName[p.tile] << ") K=" << p.numSplitsK << " Red.Sch.=" << p.reductionScheme
+                << " Swiz=" << p.swizzle << " Cust=" << p.customOption << " mathMode=" << p.mathMode
+                << " ws=" << actualWorkspace << std::endl;
 }
 
 size_t FCPluginDynamic::getWorkspaceSize(
-    const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const noexcept
+    const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const
 {
     return maxWorkspaceBytes;
 }
 
 int FCPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workSpace, cudaStream_t stream) noexcept
+    const void* const* inputs, void* const* outputs, void* workSpace, cudaStream_t stream)
 {
-    try
+    const size_t workspaceSize = getWorkspaceSize(inputDesc, 1, outputDesc, 1);
+
+    int status = -1;
+
+    const int S = inputDesc->dims.d[SDIM];
+    const int B = inputDesc->dims.d[BDIM];
+    const int n = S * B;
+    mLtContext.setN(n);
+
+    if (mType == DataType::kFLOAT)
     {
-        const size_t workspaceSize = getWorkspaceSize(inputDesc, 1, outputDesc, 1);
+        const auto input = static_cast<const float*>(inputs[0]);
+        auto output = static_cast<float*>(outputs[0]);
 
-        const int S = inputDesc->dims.d[SDIM];
-        const int B = inputDesc->dims.d[BDIM];
-        const int n = S * B;
-        mLtContext.setN(n);
+        Gemm<float> g(mOutDim, n, mK, false, false);
+        assert(mWdev != nullptr);
+        g.A = static_cast<float*>(mWdev.get());
+        g.B = const_cast<float*>(input);
+        g.C = output;
 
-        if (mType == DataType::kFLOAT)
-        {
-            const auto* const input = static_cast<const float*>(inputs[0]);
-            auto* output = static_cast<float*>(outputs[0]);
-
-            Gemm<float> g(mOutDim, n, mK, false, false);
-            if (mWdev == nullptr)
-            {
-                return STATUS_FAILURE;
-            }
-            g.A = static_cast<float*>(mWdev.get());
-            g.B = const_cast<float*>(input);
-            g.C = output;
-
-            return cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream);
-        }
-        else if (mType == DataType::kHALF)
-        {
-            const auto* const input = static_cast<const half*>(inputs[0]);
-            auto* output = static_cast<half*>(outputs[0]);
-
-            Gemm<half> g(mOutDim, n, mK, false, false);
-            if (mWdev == nullptr)
-            {
-                return STATUS_FAILURE;
-            }
-            g.A = static_cast<half*>(mWdev.get());
-            g.B = const_cast<half*>(input);
-            g.C = output;
-            return cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream);
-        }
-        else
-        {
-            gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType)
-                      << std::endl;
-            return STATUS_FAILURE;
-        }
+        CUBLASASSERT(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
     }
-    catch (const std::exception& e)
+    else if (mType == DataType::kHALF)
     {
-        caughtError(e);
+        const auto input = static_cast<const half*>(inputs[0]);
+        auto output = static_cast<half*>(outputs[0]);
+
+        Gemm<half> g(mOutDim, n, mK, false, false);
+        assert(mWdev != nullptr);
+        g.A = static_cast<half*>(mWdev.get());
+        g.B = const_cast<half*>(input);
+        g.C = output;
+        CUBLASASSERT(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
     }
-    return -1;
+    else
+    {
+        gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType)
+                  << std::endl;
+        assert(false);
+    }
+
+    return status;
 }
 
 // IPluginV2Ext Methods
-DataType FCPluginDynamic::getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const noexcept
+DataType FCPluginDynamic::getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const
 {
     assert(index == 0);
     assert(nbInputs == 1);
@@ -610,40 +577,41 @@ DataType FCPluginDynamic::getOutputDataType(int index, const DataType* inputType
 }
 
 // IPluginV2 Methods
-const char* FCPluginDynamic::getPluginType() const noexcept
+const char* FCPluginDynamic::getPluginType() const
 {
     return FC_NAME;
 }
 
-const char* FCPluginDynamic::getPluginVersion() const noexcept
+const char* FCPluginDynamic::getPluginVersion() const
 {
     return FC_VERSION;
 }
 
-int FCPluginDynamic::getNbOutputs() const noexcept
+int FCPluginDynamic::getNbOutputs() const
 {
     return 1;
 }
 
-int FCPluginDynamic::initialize() noexcept
+int FCPluginDynamic::initialize()
 {
     gLogVerbose << "FCPluginDynamic initialize\n";
     return 0;
 }
 
-void FCPluginDynamic::terminate() noexcept
+void FCPluginDynamic::terminate()
 {
     gLogVerbose << "FCPluginDynamic terminate\n";
 }
 
-size_t FCPluginDynamic::getSerializationSize() const noexcept
+size_t FCPluginDynamic::getSerializationSize() const
 {
+
     size_t wordSize = getElementSize(mType);
     return wordSize * mNumParams + sizeof(mType) + sizeof(mOutDim) + sizeof(mNumParams) + sizeof(mAlgo) + sizeof(mNmax)
         + sizeof(mK);
 }
 
-void FCPluginDynamic::serialize(void* buffer) const noexcept
+void FCPluginDynamic::serialize(void* buffer) const
 {
     serialize_value(&buffer, mType);
     serialize_value(&buffer, mOutDim);
@@ -657,28 +625,21 @@ void FCPluginDynamic::serialize(void* buffer) const noexcept
     serFromDev(d, static_cast<char*>(mWdev.get()), mNumParams * wordSize);
 }
 
-void FCPluginDynamic::destroy() noexcept
+void FCPluginDynamic::destroy()
 {
     gLogVerbose << "FCPluginDynamic destroy\n";
     // This gets called when the network containing plugin is destroyed
     mLtContext.destroy();
-    mWdev.reset(nullptr);
+    mWdev.release();
     delete this;
 }
 
-void FCPluginDynamic::setPluginNamespace(const char* libNamespace) noexcept
+void FCPluginDynamic::setPluginNamespace(const char* libNamespace)
 {
-    try
-    {
-        mNamespace = libNamespace;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
+    mNamespace = libNamespace;
 }
 
-const char* FCPluginDynamic::getPluginNamespace() const noexcept
+const char* FCPluginDynamic::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }
@@ -687,116 +648,90 @@ const char* FCPluginDynamic::getPluginNamespace() const noexcept
 
 FCPluginDynamicCreator::FCPluginDynamicCreator()
 {
-    mPluginAttributes.emplace_back(PluginField("out_dims", nullptr, PluginFieldType::kINT32, 1));
-    mPluginAttributes.emplace_back(PluginField("type_id", nullptr, PluginFieldType::kINT32, 1));
-    mPluginAttributes.emplace_back(PluginField("W", nullptr, PluginFieldType::kFLOAT32, 1));
-
     mFC.nbFields = mPluginAttributes.size();
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* FCPluginDynamicCreator::getPluginName() const noexcept
+const char* FCPluginDynamicCreator::getPluginName() const
 {
     return FC_NAME;
 }
 
-const char* FCPluginDynamicCreator::getPluginVersion() const noexcept
+const char* FCPluginDynamicCreator::getPluginVersion() const
 {
     return FC_VERSION;
 }
 
-const PluginFieldCollection* FCPluginDynamicCreator::getFieldNames() noexcept
+const PluginFieldCollection* FCPluginDynamicCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2* FCPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2* FCPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    try
+    gLogVerbose << "Creating FCPluginDynamicCreator...\n";
+
+    int outDims = 0;
+    int typeId = -1;
+    Weights W;
+    W.count = 0;
+    W.values = nullptr;
+
+    for (int i = 0; i < fc->nbFields; i++)
     {
-        gLogVerbose << "Creating FCPluginDynamicCreator...\n";
-
-        int outDims = 0;
-        int typeId = -1;
-        Weights W{DataType::kFLOAT, nullptr, 0ll};
-
-        for (int i = 0; i < fc->nbFields; i++)
+        std::string field_name(fc->fields[i].name);
+        if (field_name.compare("out_dims") == 0)
         {
-            std::string field_name(fc->fields[i].name);
-            if (field_name.compare("out_dims") == 0)
-            {
-                outDims = static_cast<const int*>(fc->fields[i].data)[0];
-                gLogVerbose << "Building outDims: " << outDims << std::endl;
-            }
-
-            if (field_name.compare("type_id") == 0)
-            {
-                typeId = static_cast<const int*>(fc->fields[i].data)[0];
-                gLogVerbose << "Building typeId: " << outDims << std::endl;
-            }
-
-            if (field_name.compare("W") == 0)
-            {
-                gLogVerbose << "Building W...\n";
-                W.values = fc->fields[i].data;
-                W.count = fc->fields[i].length;
-                W.type = fieldTypeToDataType(fc->fields[i].type);
-                gLogVerbose << "Is W float32: " << (W.type == DataType::kFLOAT) << std::endl;
-            }
+            outDims = static_cast<const int*>(fc->fields[i].data)[0];
+            gLogVerbose << "Building outDims: " << outDims << std::endl;
         }
 
-        if (outDims <= 0)
+        if (field_name.compare("type_id") == 0)
         {
-            gLogError << "Invalid output dimension" << std::endl;
-        }
-        if (typeId < 0 || typeId > 3)
-        {
-            gLogError << "Invalid type id" << typeId << std::endl;
-        }
-        if (W.count == 0 || W.values == nullptr || W.count < outDims)
-        {
-            gLogError << "Invalid weights" << std::endl;
+            typeId = static_cast<const int*>(fc->fields[i].data)[0];
+            gLogVerbose << "Building typeId: " << outDims << std::endl;
         }
 
-        DataType type = static_cast<DataType>(typeId);
-        return new FCPluginDynamic(name, type, outDims, W);
+        if (field_name.compare("W") == 0)
+        {
+            gLogVerbose << "Building W...\n";
+            W.values = fc->fields[i].data;
+            W.count = fc->fields[i].length;
+            W.type = fieldTypeToDataType(fc->fields[i].type);
+            gLogVerbose << "Is W float32: " << (W.type == DataType::kFLOAT) << std::endl;
+        }
     }
-    catch (const std::exception& e)
+
+    if (outDims <= 0)
     {
-        caughtError(e);
+        gLogError << "Invalid output dimension" << std::endl;
     }
-    return nullptr;
+    if (typeId < 0 || typeId > 3)
+    {
+        gLogError << "Invalid type id" << typeId << std::endl;
+    }
+    if (W.count == 0 || W.values == nullptr || W.count < outDims)
+    {
+        gLogError << "Invalid weights" << std::endl;
+    }
+
+    DataType type = static_cast<DataType>(typeId);
+    return new FCPluginDynamic(name, type, outDims, W);
 }
 
-IPluginV2* FCPluginDynamicCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2* FCPluginDynamicCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     // This object will be deleted when the network is destroyed, which will
     // call FCPluginDynamic::destroy()
-    try
-    {
-        return new FCPluginDynamic(name, serialData, serialLength);
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
+    return new FCPluginDynamic(name, serialData, serialLength);
 }
 
-void FCPluginDynamicCreator::setPluginNamespace(const char* libNamespace) noexcept
+void FCPluginDynamicCreator::setPluginNamespace(const char* libNamespace)
 {
-    try
-    {
-        mNamespace = libNamespace;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
+    mNamespace = libNamespace;
 }
 
-const char* FCPluginDynamicCreator::getPluginNamespace() const noexcept
+const char* FCPluginDynamicCreator::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }

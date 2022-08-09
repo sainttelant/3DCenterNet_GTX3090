@@ -1,17 +1,29 @@
-# SPDX-License-Identifier: Apache-2.0
+ # Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a
+ # copy of this software and associated documentation files (the "Software"),
+ # to deal in the Software without restriction, including without limitation
+ # the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ # and/or sell copies of the Software, and to permit persons to whom the
+ # Software is furnished to do so, subject to the following conditions:
+ #
+ # The above copyright notice and this permission notice shall be included in
+ # all copies or substantial portions of the Software.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ # DEALINGS IN THE SOFTWARE.
 
 cmake_minimum_required(VERSION 3.13)
 project(onnx2trt LANGUAGES CXX C)
 
-SET(CMAKE_BUILD_TYPE "Debug")
-
-SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
-
-SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
-
 set(ONNX2TRT_ROOT ${PROJECT_SOURCE_DIR})
-# Set C++14 as standard for the whole project
-set(CMAKE_CXX_STANDARD 14)
+# Set C++11 as standard for the whole project
+set(CMAKE_CXX_STANDARD  11)
 
 # Enable compiler warnings
 if (CMAKE_COMPILER_IS_GNUCC)
@@ -26,17 +38,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(PARSER_LINKER_SCRIPT  ${ONNX2TRT_ROOT}/libnvonnxparser.version)
 
-# Find length of source directory used to pad filename in Status.hpp
-string(LENGTH "${CMAKE_SOURCE_DIR}/" SOURCE_LENGTH)
-add_definitions("-DSOURCE_LENGTH=${SOURCE_LENGTH}")
-
 #--------------------------------------------------
 # Version information
 #--------------------------------------------------
-set(ONNX2TRT_MAJOR 8)
-set(ONNX2TRT_MINOR 2)
-set(ONNX2TRT_PATCH 1)
-set(ONNX2TRT_VERSION "${ONNX2TRT_MAJOR}.${ONNX2TRT_MINOR}.${ONNX2TRT_PATCH}" CACHE STRING "ONNX2TRT version")
+set(ONNX2TRT_MAJOR 7)
+set(ONNX2TRT_MINOR 1)
+set(ONNX2TRT_PATCH 0)
 
 #--------------------------------------------------
 # Build configurations, global to all projects
@@ -47,16 +54,23 @@ set(IMPORTER_SOURCES
   ModelImporter.cpp
   builtin_op_importers.cpp
   onnx2trt_utils.cpp
-  onnxErrorRecorder.cpp
   ShapedWeights.cpp
   ShapeTensor.cpp
   LoopHelpers.cpp
   RNNHelpers.cpp
   OnnxAttrs.cpp
-  ConditionalHelpers.cpp
 )
 
-if (BUILD_ONNXIFI)
+# Do not build ONNXIFI by default.
+if(BUILD_ONNXIFI)
+  if (NOT CUDA_TOOLKIT_ROOT_DIR)
+    set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
+  endif()
+  message(debug "CUDA_TOOLKIT_ROOT_DIR: ${CUDA_TOOLKIT_ROOT_DIR}")
+  find_path(CUDA_INCLUDE_DIR cuda_runtime.h
+    HINTS ${CUDA_TOOLKIT_ROOT_DIR}
+    PATH_SUFFIXES include
+  )
   set(ONNXIFI_SOURCES onnx_trt_backend.cpp)
 endif()
 
@@ -70,6 +84,10 @@ if (NOT DEFINED BUILD_LIBRARY_ONLY)
     ModelImporter.cpp
   )
 endif()
+
+set(HEADERS
+  NvOnnxParser.h
+)
 
 if (NOT TARGET protobuf::libprotobuf)
   FIND_PACKAGE(Protobuf REQUIRED)
@@ -86,16 +104,6 @@ if(NOT TARGET onnx_proto)
   add_subdirectory(third_party/onnx EXCLUDE_FROM_ALL)
 endif()
 
-# CUDA
-if (NOT CUDA_TOOLKIT_ROOT_DIR)
-  set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
-endif()
-find_path(CUDA_INCLUDE_DIR cuda_runtime.h
-  HINTS ${CUDA_TOOLKIT_ROOT_DIR}
-  PATH_SUFFIXES include
-)
-MESSAGE(STATUS "Found CUDA headers at ${CUDA_INCLUDE_DIR}")
-
 # TensorRT
 find_path(TENSORRT_INCLUDE_DIR NvInfer.h
   HINTS ${TENSORRT_ROOT} ${CUDA_TOOLKIT_ROOT_DIR}
@@ -107,7 +115,16 @@ find_library(TENSORRT_LIBRARY_INFER nvinfer
 find_library(TENSORRT_LIBRARY_INFER_PLUGIN nvinfer_plugin
   HINTS  ${TENSORRT_ROOT} ${TENSORRT_BUILD} ${CUDA_TOOLKIT_ROOT_DIR}
   PATH_SUFFIXES lib lib64 lib/x64)
-set(TENSORRT_LIBRARY ${TENSORRT_LIBRARY_INFER} ${TENSORRT_LIBRARY_INFER_PLUGIN})
+if(WIN32)
+  find_library(TENSORRT_LIBRARY_MYELIN myelin64_1
+    HINTS  ${TENSORRT_ROOT} ${TENSORRT_BUILD} ${CUDA_TOOLKIT_ROOT_DIR}
+    PATH_SUFFIXES lib lib64 lib/x64)
+else()
+  find_library(TENSORRT_LIBRARY_MYELIN myelin
+    HINTS  ${TENSORRT_ROOT} ${TENSORRT_BUILD} ${CUDA_TOOLKIT_ROOT_DIR}
+    PATH_SUFFIXES lib lib64 lib/x64)
+endif()
+set(TENSORRT_LIBRARY ${TENSORRT_LIBRARY_INFER} ${TENSORRT_LIBRARY_INFER_PLUGIN} ${TENSORRT_LIBRARY_MYELIN})
 MESSAGE(STATUS "Find TensorRT libs at ${TENSORRT_LIBRARY}")
 find_package_handle_standard_args(
   TENSORRT DEFAULT_MSG TENSORRT_INCLUDE_DIR TENSORRT_LIBRARY)
@@ -119,16 +136,16 @@ endif()
 # Importer library
 # --------------------------------
 add_library(nvonnxparser SHARED ${IMPORTER_SOURCES})
-target_include_directories(nvonnxparser PUBLIC ${ONNX_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR} ${CUDA_INCLUDE_DIR})
+target_include_directories(nvonnxparser PUBLIC ${ONNX_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR})
 target_link_libraries(nvonnxparser PUBLIC onnx_proto ${PROTOBUF_LIBRARY} ${TENSORRT_LIBRARY})
 set_target_properties(nvonnxparser PROPERTIES
-  VERSION   ${ONNX2TRT_VERSION}
+  VERSION   ${ONNX2TRT_MAJOR}.${ONNX2TRT_MINOR}.${ONNX2TRT_PATCH}
   SOVERSION ${ONNX2TRT_MAJOR}
   LINK_DEPENDS ${PARSER_LINKER_SCRIPT}
   LINK_FLAGS "-Wl,--version-script=${PARSER_LINKER_SCRIPT}"
 )
 add_library(nvonnxparser_static STATIC ${IMPORTER_SOURCES})
-target_include_directories(nvonnxparser_static PUBLIC ${ONNX_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR} ${CUDA_INCLUDE_DIR})
+target_include_directories(nvonnxparser_static PUBLIC ${ONNX_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR})
 target_link_libraries(nvonnxparser_static PUBLIC onnx_proto ${PROTOBUF_LIBRARY} ${TENSORRT_LIBRARY})
 
 # --------------------------------
@@ -155,7 +172,7 @@ endif()
 if (NOT DEFINED BUILD_LIBRARY_ONLY)
   add_executable(getSupportedAPITest ${API_TESTS_SOURCES})
   target_include_directories(getSupportedAPITest PUBLIC ${ONNX_INCLUDE_DIRS} ${CUDNN_INCLUDE_DIR})
-  target_link_libraries(getSupportedAPITest PUBLIC ${PROTOBUF_LIB} nvonnxparser_static ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS}) #${CUDA_LIBRARIES}
+  target_link_libraries(getSupportedAPITest PUBLIC ${PROTOBUF_LIB} nvonnxparser_static ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS}) #${CUDA_LIBRARIES} 
 endif()
 
 # --------------------------------
@@ -171,6 +188,7 @@ install(TARGETS
 install(FILES ${HEADERS}
   DESTINATION include
 )
+
 if (NOT DEFINED BUILD_LIBRARY_ONLY)
   install(TARGETS
           onnx2trt

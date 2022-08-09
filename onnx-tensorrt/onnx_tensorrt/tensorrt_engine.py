@@ -1,11 +1,33 @@
-# SPDX-License-Identifier: Apache-2.0
+ # Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a
+ # copy of this software and associated documentation files (the "Software"),
+ # to deal in the Software without restriction, including without limitation
+ # the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ # and/or sell copies of the Software, and to permit persons to whom the
+ # Software is furnished to do so, subject to the following conditions:
+ #
+ # The above copyright notice and this permission notice shall be included in
+ # all copies or substantial portions of the Software.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ # DEALINGS IN THE SOFTWARE.
 
 import tensorrt as trt
 import pycuda.driver
 import pycuda.gpuarray
 import pycuda.autoinit
 import numpy as np
+from .config import Config
 from six import string_types
+
+
+_config = Config()
 
 class Binding(object):
     def __init__(self, engine, idx_or_name):
@@ -25,8 +47,7 @@ class Binding(object):
         dtype = engine.get_binding_dtype(self.index)
         dtype_map = {trt.DataType.FLOAT: np.float32,
                         trt.DataType.HALF:  np.float16,
-                        trt.DataType.INT8:  np.int8,
-                        trt.DataType.BOOL: np.bool}
+                        trt.DataType.INT8:  np.int8}
         if hasattr(trt.DataType, 'INT32'):
             dtype_map[trt.DataType.INT32] = np.int32
 
@@ -34,14 +55,6 @@ class Binding(object):
         shape = engine.get_binding_shape(self.index)
 
         self.shape = tuple(shape)
-        # Must allocate a buffer of size 1 for empty inputs / outputs
-        if 0 in self.shape:
-            self.empty = True
-            # Save original shape to reshape output binding when execution is done
-            self.empty_shape = self.shape
-            self.shape = tuple([1])
-        else:
-            self.empty = False
         self._host_buf   = None
         self._device_buf = None
     @property
@@ -103,14 +116,13 @@ class Engine(object):
         self.binding_addrs = [b.device_buffer.ptr for b in bindings]
         self.inputs  = [b for b in bindings if     b.is_input]
         self.outputs = [b for b in bindings if not b.is_input]
-
+        
         for binding in self.inputs + self.outputs:
             _ = binding.device_buffer # Force buffer allocation
         for binding in self.outputs:
             _ = binding.host_buffer   # Force buffer allocation
         self.context = self.engine.create_execution_context()
         self.stream = pycuda.driver.Stream()
-
     def __del__(self):
         if self.engine is not None:
             del self.engine
@@ -123,7 +135,12 @@ class Engine(object):
                              (len(self.inputs), len(inputs)))
         if isinstance(inputs, dict):
             inputs = [inputs[b.name] for b in self.inputs]
-
+        
+        batch_size = 0
+        if inputs:
+            batch_size = inputs[0].shape[0]
+        else:
+            batch_size = self.outputs[0].shape[0]
 
         for i, (input_array, input_binding) in enumerate(zip(inputs, self.inputs)):
             input_array = check_input_validity(i, input_array, input_binding)
@@ -135,12 +152,6 @@ class Engine(object):
 
         results = [output.get_async(self.stream)
                    for output in self.outputs]
-
-        # For any empty bindings, update the result shape to the expected empty shape
-        for i, (output_array, output_binding) in enumerate(zip(results, self.outputs)):
-            if output_binding.empty:
-                results[i] = np.empty(shape=output_binding.empty_shape, dtype=output_binding.dtype)
-
         self.stream.synchronize()
         return results
 

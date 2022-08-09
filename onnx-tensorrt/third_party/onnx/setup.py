@@ -325,14 +325,13 @@ setuptools.setup(
     ext_modules=ext_modules,
     cmdclass=cmdclass,
     packages=packages,
-    license='MIT',
     include_package_data=True,
     install_requires=install_requires,
     setup_requires=setup_requires,
     tests_require=tests_require,
     extras_require=extras_require,
-    author='ONNX',
-    author_email='onnx-technical-discuss@lists.lfai.foundation',
+    author='bddppq',
+    author_email='jbai@fb.com',
     url='https://github.com/onnx/onnx',
     entry_points={
         'console_scripts': [

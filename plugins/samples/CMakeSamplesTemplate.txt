@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ set_ifndef(SAMPLE_PARSERS "none")
 
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-get_filename_component(SAMPLES_DIR ../ ABSOLUTE)
+get_filename_component(SAMPLES_DIR ../../ ABSOLUTE)
 get_filename_component(SAMPLE_DIR_NAME ${TARGET_DIR} NAME)
 
-set_ifndef(CUDA_INSTALL_DIR /usr/local/cuda)
+set(CUDA_INSTALL_DIR /usr/local/cuda)
 
 # SAMPLES_COMMON_SOURCES
 set(SAMPLES_COMMON_SOURCES
@@ -40,7 +40,8 @@ string(REGEX REPLACE "([a-z0-9])([A-Z])" "\\1_\\2" SAMPLE_NAME_SNAKE_MIXED ${SAM
 string(TOLOWER ${SAMPLE_NAME_SNAKE_MIXED} SAMPLE_NAME_SNAKE)
 
 # fix a few sample names
-string(REGEX REPLACE "google_net" "googlenet" SAMPLE_NAME_FIXED ${SAMPLE_NAME_SNAKE})
+string(REGEX REPLACE "movie_lens" "movielens" SAMPLE_NAME_FIXED ${SAMPLE_NAME_SNAKE})
+string(REGEX REPLACE "google_net" "googlenet" SAMPLE_NAME_FIXED ${SAMPLE_NAME_FIXED})
 string(REGEX REPLACE "([a-zA-Z0-0])api" "\\1_api" SAMPLE_NAME_FIXED ${SAMPLE_NAME_FIXED})
 string(REGEX REPLACE "_rcnn" "RCNN" SAMPLE_NAME_FIXED ${SAMPLE_NAME_FIXED})
 
@@ -69,7 +70,7 @@ if(BUILD_PLUGINS OR BUILD_PARSERS)
 endif()
 
 set(ONNX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/parsers/onnx CACHE STRING "ONNX include directory")
-message(ONNX_INCLUDE_DIR)
+
 target_include_directories(${TARGET_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${ONNX_INCLUDE_DIR}

@@ -5,7 +5,9 @@
 
 - [Introduction](#introduction)
 - [Installation](#installation)
-- [Examples](#examples)
+    - [Building From Source](#building-from-source)
+        - [Using Make Targets](#using-make-targets)
+        - [Building Manually](#building-manually)
 - [Understanding The Basics](#understanding-the-basics)
     - [Importers](#importers)
     - [IR](#ir)
@@ -14,8 +16,7 @@
         - [A Note On Modifying Inputs And Outputs](#a-note-on-modifying-inputs-and-outputs)
         - [Graph](#graph)
     - [Exporters](#exporters)
-- [Advanced](#advanced)
-    - [Working With Models With External Data](#working-with-models-with-external-data)
+- [Examples](#examples)
 
 ## Introduction
 
@@ -24,16 +25,15 @@ ONNX GraphSurgeon is a tool that allows you to easily generate new ONNX graphs, 
 
 ## Installation
 
-### Using Prebuilt Wheels
-```bash
-python3 -m pip install onnx_graphsurgeon --index-url https://pypi.ngc.nvidia.com
-```
-
 ### Building From Source
 
 #### Using Make Targets
 ```
 make install
+```
+Or, if installing inside a virtual environment:
+```
+make install_venv
 ```
 
 #### Building Manually
@@ -45,15 +45,9 @@ make build
 
 2. Install the wheel manually from **outside** the repository:
 ```
-python3 -m pip install onnx_graphsurgeon/dist/onnx_graphsurgeon-*-py2.py3-none-any.whl
+python3 -m pip install onnx_graphsurgeon/dist/onnx_graphsurgeon-X.Y.Z-py2.py3-none-any.whl --user
 ```
-
-
-## Examples
-
-The [examples](./examples) directory contains several examples of common use-cases of ONNX GraphSurgeon.
-
-The visualizations provided were generated using [Netron](https://github.com/lutzroeder/netron).
+where `X.Y.Z` is the version number.
 
 
 ## Understanding The Basics
@@ -65,10 +59,7 @@ ONNX GraphSurgeon is composed of three major components: Importers, the IR, and 
 Importers are used to import a graph into the ONNX GraphSurgeon IR.
 The importer interface is defined in [base_importer.py](./onnx_graphsurgeon/importers/base_importer.py).
 
-ONNX GraphSurgeon also provides [high-level importer APIs](./onnx_graphsurgeon/api/api.py) for ease of use:
-```python
-graph = gs.import_onnx(onnx.load("model.onnx"))
-```
+ONNX GraphSurgeon also provides [high-level importer APIs](./onnx_graphsurgeon/api/api.py) for ease of use.
 
 ### IR
 
@@ -86,8 +77,6 @@ is an ONNX GraphSurgeon type, or an instance of that type.
 Tensors are divided into two subclasses: `Variable` and `Constant`.
 
 - A `Constant` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
-    *Note: The `values` property of a `Constant` is loaded on-demand. If the property is not accessed, the values will*
-    *not be loaded as a NumPy array*.
 - A `Variable` is a tensor whose values are unknown until inference-time, but may contain information about data type and shape.
 
 The inputs and outputs of Tensors are always Nodes.
@@ -191,38 +180,11 @@ To see the full Graph API, you can see `help(onnx_graphsurgeon.Graph)` in an int
 Exporters are used to export the ONNX GraphSurgeon IR to ONNX or other types of graphs.
 The exporter interface is defined in [base_exporter.py](./onnx_graphsurgeon/exporters/base_exporter.py).
 
-ONNX GraphSurgeon also provides [high-level exporter APIs](./onnx_graphsurgeon/api/api.py) for ease of use:
-```python
-onnx.save(gs.export_onnx(graph), "model.onnx")
-```
+ONNX GraphSurgeon also provides [high-level exporter APIs](./onnx_graphsurgeon/api/api.py) for ease of use.
 
 
-## Advanced
+## Examples
 
-### Working With Models With External Data
+The [examples](./examples) directory contains several examples of common use-cases of ONNX GraphSurgeon.
 
-Using models with externally stored data with ONNX-GraphSurgeon is almost the same as working with
-ONNX models without external data. Refer to the
-[official ONNX documentation](https://github.com/onnx/onnx/blob/master/docs/PythonAPIOverview.md#loading-an-onnx-model-with-external-data)
-for details on how to load such models. To import the model into ONNX-GraphSurgeon, you can use the
-`import_onnx` function as normal.
-
-During export, you just need to take one additional step:
-
-1. Export the model from ONNX-GraphSurgeon as normal:
-    ```python
-    model = gs.export_onnx(graph)
-    ```
-
-2. Update the model so that it writes its data to the external location. If the location is not
-    specified, it defaults to the same directory as the ONNX model:
-    ```python
-    from onnx.external_data_helper import convert_model_to_external_data
-
-    convert_model_to_external_data(model, location="model.data")
-    ```
-
-3. Then you can save the model as usual:
-    ```python
-    onnx.save(model, "model.onnx")
-    ```
+The visualizations provided were generated using [Netron](https://github.com/lutzroeder/netron).

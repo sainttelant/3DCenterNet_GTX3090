@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,19 +18,17 @@ import sys
 import onnx_graphsurgeon
 from setuptools import setup, find_packages
 
-
 def no_publish():
-    blacklist = ["register"]
+    blacklist = ['register']
     for cmd in blacklist:
         if cmd in sys.argv:
-            raise RuntimeError('Command "{}" blacklisted'.format(cmd))
+            raise RuntimeError("Command \"{}\" blacklisted".format(cmd))
 
 
 REQUIRED_PACKAGES = [
     "numpy",
     "onnx",
 ]
-
 
 def main():
     no_publish()
@@ -39,24 +37,17 @@ def main():
         version=onnx_graphsurgeon.__version__,
         description="ONNX GraphSurgeon",
         long_description=open("README.md", "r", encoding="utf-8").read(),
-        license="Apache 2.0",
         url="https://github.com/nvidia/tensorrt/tools/onnx-graphsurgeon",
-        author="NVIDIA",
-        author_email="svc_tensorrt@nvidia.com",
+        author="Pranav Marathe",
+        author_email="pranavm@nvidia.com",
         classifiers=[
-            "Intended Audience :: Developers",
-            "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.4",
-            "Programming Language :: Python :: 3.5",
-            "Programming Language :: Python :: 3.6",
-            "Programming Language :: Python :: 3.7",
-            "Programming Language :: Python :: 3.8",
+            'Intended Audience :: Developers',
+            'Programming Language :: Python :: 3',
         ],
         install_requires=REQUIRED_PACKAGES,
         packages=find_packages(),
         zip_safe=True,
     )
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 import argparse
 from train import main as main_train
@@ -28,7 +26,7 @@ def parse_args(parser):
     return parser
 
 def main():
-
+    
     parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Testing')
     parser = parse_args(parser)
     args, unknown_args = parser.parse_known_args()

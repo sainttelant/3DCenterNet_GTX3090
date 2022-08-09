@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ std::vector<PluginField> DetectionLayerPluginCreator::mPluginAttributes;
 
 DetectionLayerPluginCreator::DetectionLayerPluginCreator()
 {
-    mPluginAttributes.clear();
+
     mPluginAttributes.emplace_back(PluginField("num_classes", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("keep_topk", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("score_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
@@ -43,71 +43,55 @@ DetectionLayerPluginCreator::DetectionLayerPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* DetectionLayerPluginCreator::getPluginName() const noexcept
+const char* DetectionLayerPluginCreator::getPluginName() const
 {
     return DETECTIONLAYER_PLUGIN_NAME;
-}
+};
 
-const char* DetectionLayerPluginCreator::getPluginVersion() const noexcept
+const char* DetectionLayerPluginCreator::getPluginVersion() const
 {
     return DETECTIONLAYER_PLUGIN_VERSION;
-}
+};
 
-const PluginFieldCollection* DetectionLayerPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* DetectionLayerPluginCreator::getFieldNames()
 {
     return &mFC;
-}
+};
 
-IPluginV2Ext* DetectionLayerPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* DetectionLayerPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    try
+    const PluginField* fields = fc->fields;
+    for (int i = 0; i < fc->nbFields; ++i)
     {
-        const PluginField* fields = fc->fields;
-        for (int i = 0; i < fc->nbFields; ++i)
+        const char* attrName = fields[i].name;
+        if (!strcmp(attrName, "num_classes"))
         {
-            const char* attrName = fields[i].name;
-            if (!strcmp(attrName, "num_classes"))
-            {
-                assert(fields[i].type == PluginFieldType::kINT32);
-                mNbClasses = *(static_cast<const int*>(fields[i].data));
-            }
-            if (!strcmp(attrName, "keep_topk"))
-            {
-                assert(fields[i].type == PluginFieldType::kINT32);
-                mKeepTopK = *(static_cast<const int*>(fields[i].data));
-            }
-            if (!strcmp(attrName, "score_threshold"))
-            {
-                assert(fields[i].type == PluginFieldType::kFLOAT32);
-                mScoreThreshold = *(static_cast<const float*>(fields[i].data));
-            }
-            if (!strcmp(attrName, "iou_threshold"))
-            {
-                assert(fields[i].type == PluginFieldType::kFLOAT32);
-                mIOUThreshold = *(static_cast<const float*>(fields[i].data));
-            }
+            assert(fields[i].type == PluginFieldType::kINT32);
+            mNbClasses = *(static_cast<const int*>(fields[i].data));
         }
-        return new DetectionLayer(mNbClasses, mKeepTopK, mScoreThreshold, mIOUThreshold);
+        if (!strcmp(attrName, "keep_topk"))
+        {
+            assert(fields[i].type == PluginFieldType::kINT32);
+            mKeepTopK = *(static_cast<const int*>(fields[i].data));
+        }
+        if (!strcmp(attrName, "score_threshold"))
+        {
+            assert(fields[i].type == PluginFieldType::kFLOAT32);
+            mScoreThreshold = *(static_cast<const float*>(fields[i].data));
+        }
+        if (!strcmp(attrName, "iou_threshold"))
+        {
+            assert(fields[i].type == PluginFieldType::kFLOAT32);
+            mIOUThreshold = *(static_cast<const float*>(fields[i].data));
+        }
     }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
-}
+    return new DetectionLayer(mNbClasses, mKeepTopK, mScoreThreshold, mIOUThreshold);
+};
 
-IPluginV2Ext* DetectionLayerPluginCreator::deserializePlugin(const char* name, const void* data, size_t length) noexcept
+IPluginV2Ext* DetectionLayerPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
 {
-    try
-    {
-        return new DetectionLayer(data, length);
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
-}
+    return new DetectionLayer(data, length);
+};
 
 DetectionLayer::DetectionLayer(int num_classes, int keep_topk, float score_threshold, float iou_threshold)
     : mNbClasses(num_classes)
@@ -128,14 +112,14 @@ DetectionLayer::DetectionLayer(int num_classes, int keep_topk, float score_thres
     mParam.iouThreshold = mIOUThreshold;
 
     mType = DataType::kFLOAT;
-}
+};
 
-int DetectionLayer::getNbOutputs() const noexcept
+int DetectionLayer::getNbOutputs() const
 {
     return 1;
-}
+};
 
-int DetectionLayer::initialize() noexcept
+int DetectionLayer::initialize()
 {
     //@Init the mValidCnt and mDecodedBboxes for max batch size
     std::vector<int> tempValidCnt(mMaxBatchSize, mAnchorsCnt);
@@ -146,68 +130,53 @@ int DetectionLayer::initialize() noexcept
         mValidCnt->mPtr, static_cast<void*>(tempValidCnt.data()), sizeof(int) * mMaxBatchSize, cudaMemcpyHostToDevice));
 
     return 0;
-}
+};
 
-void DetectionLayer::terminate() noexcept {}
+void DetectionLayer::terminate(){};
 
-void DetectionLayer::destroy() noexcept
+void DetectionLayer::destroy()
 {
     delete this;
-}
+};
 
-bool DetectionLayer::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool DetectionLayer::supportsFormat(DataType type, PluginFormat format) const
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
-}
+    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
+};
 
-const char* DetectionLayer::getPluginType() const noexcept
+const char* DetectionLayer::getPluginType() const
 {
     return "DetectionLayer_TRT";
-}
+};
 
-const char* DetectionLayer::getPluginVersion() const noexcept
+const char* DetectionLayer::getPluginVersion() const
 {
     return "1";
-}
+};
 
-IPluginV2Ext* DetectionLayer::clone() const noexcept
+IPluginV2Ext* DetectionLayer::clone() const
 {
-    try
-    {
-        DetectionLayer* plugin = new DetectionLayer(*this);
-        plugin->setPluginNamespace(mNameSpace.c_str());
-        return plugin;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return nullptr;
-}
+    DetectionLayer* plugin = new DetectionLayer(*this);
+    plugin->setPluginNamespace(mNameSpace.c_str());
+    return plugin;
+};
 
-void DetectionLayer::setPluginNamespace(const char* libNamespace) noexcept
+void DetectionLayer::setPluginNamespace(const char* libNamespace)
 {
-    try
-    {
-        mNameSpace = libNamespace;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-}
+    mNameSpace = libNamespace;
+};
 
-const char* DetectionLayer::getPluginNamespace() const noexcept
+const char* DetectionLayer::getPluginNamespace() const
 {
     return mNameSpace.c_str();
 }
 
-size_t DetectionLayer::getSerializationSize() const noexcept
+size_t DetectionLayer::getSerializationSize() const
 {
     return sizeof(int) * 2 + sizeof(float) * 2 + sizeof(int) * 2;
-}
+};
 
-void DetectionLayer::serialize(void* buffer) const noexcept
+void DetectionLayer::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mNbClasses);
@@ -217,7 +186,7 @@ void DetectionLayer::serialize(void* buffer) const noexcept
     write(d, mMaxBatchSize);
     write(d, mAnchorsCnt);
     ASSERT(d == a + getSerializationSize());
-}
+};
 
 DetectionLayer::DetectionLayer(const void* data, size_t length)
 {
@@ -242,7 +211,7 @@ DetectionLayer::DetectionLayer(const void* data, size_t length)
     mParam.iouThreshold = mIOUThreshold;
 
     mType = DataType::kFLOAT;
-}
+};
 
 void DetectionLayer::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
@@ -256,15 +225,15 @@ void DetectionLayer::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInpu
     assert(inputs[1].nbDims == 4 && inputs[1].d[1] == mNbClasses);
     // roi
     assert(inputs[2].nbDims == 2 && inputs[2].d[1] == 4);
-}
+};
 
-size_t DetectionLayer::getWorkspaceSize(int batch_size) const noexcept
+size_t DetectionLayer::getWorkspaceSize(int batch_size) const
 {
     RefineDetectionWorkSpace refine(batch_size, mAnchorsCnt, mParam, mType);
     return refine.totalSize;
-}
+};
 
-Dims DetectionLayer::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims DetectionLayer::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -282,46 +251,40 @@ Dims DetectionLayer::getOutputDimensions(int index, const Dims* inputs, int nbIn
 }
 
 int DetectionLayer::enqueue(
-    int batch_size, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+    int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
-    try
-    {
-        void* detections = outputs[0];
 
-        // refine detection
-        RefineDetectionWorkSpace refDetcWorkspace(batch_size, mAnchorsCnt, mParam, mType);
-        cudaError_t status = RefineBatchClassNMS(stream, batch_size, mAnchorsCnt,
-            DataType::kFLOAT, // mType,
-            mParam, refDetcWorkspace, workspace,
-            inputs[1],       // inputs[InScore]
-            inputs[0],       // inputs[InDelta],
-            mValidCnt->mPtr, // inputs[InCountValid],
-            inputs[2],       // inputs[ROI]
-            detections);
+    void* detections = outputs[0];
 
-        return status;
-    }
-    catch (const std::exception& e)
-    {
-        caughtError(e);
-    }
-    return -1;
-}
+    // refine detection
+    RefineDetectionWorkSpace refDetcWorkspace(batch_size, mAnchorsCnt, mParam, mType);
+    cudaError_t status = RefineBatchClassNMS(stream, batch_size, mAnchorsCnt,
+        DataType::kFLOAT, // mType,
+        mParam, refDetcWorkspace, workspace,
+        inputs[1],       // inputs[InScore]
+        inputs[0],       // inputs[InDelta],
+        mValidCnt->mPtr, // inputs[InCountValid],
+        inputs[2],       // inputs[ROI]
+        detections);
 
-DataType DetectionLayer::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+    assert(status == cudaSuccess);
+    return status;
+};
+
+DataType DetectionLayer::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
 }
 
 // Return true if output tensor is broadcast across a batch.
-bool DetectionLayer::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+bool DetectionLayer::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool DetectionLayer::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool DetectionLayer::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
@@ -329,7 +292,7 @@ bool DetectionLayer::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
 // Configure the layer with input and output data types.
 void DetectionLayer::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
     check_valid_inputs(inputDims, nbInputs);
     assert(inputDims[0].d[0] == inputDims[1].d[0] && inputDims[1].d[0] == inputDims[2].d[0]);
@@ -341,9 +304,9 @@ void DetectionLayer::configurePlugin(const Dims* inputDims, int nbInputs, const 
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void DetectionLayer::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void DetectionLayer::detachFromContext() noexcept {}
+void DetectionLayer::detachFromContext() {}

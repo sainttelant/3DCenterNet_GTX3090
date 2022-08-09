@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #include "NvOnnxParser.h"
@@ -34,6 +52,7 @@ void print_usage() {
        << "                [-O passes] (optimize onnx model. Argument is a semicolon-separated list of passes)" << "\n"
        << "                [-p] (list available optimization passes and exit)" << "\n"
        << "                [-l] (list layers and their shapes)" << "\n"
+       << "                [-g] (debug mode)" << "\n"
        << "                [-F] (optimize onnx model in fixed mode)" << "\n"
        << "                [-v] (increase verbosity)" << "\n"
        << "                [-q] (decrease verbosity)" << "\n"
@@ -42,8 +61,6 @@ void print_usage() {
 }
 
 int main(int argc, char* argv[]) {
-
-  cout<<"wilson<<<<<<<<<<<1"<<endl;
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   std::string engine_filename;
@@ -59,6 +76,7 @@ int main(int argc, char* argv[]) {
   bool optimize_model_fixed = false;
   bool print_optimization_passes_info = false;
   bool print_layer_info = false;
+  bool debug_builder = false;
 
   int arg = 0;
   while( (arg = ::getopt(argc, argv, "o:b:w:t:T:m:d:O:plgFvqVh")) != -1 ) {
@@ -90,6 +108,7 @@ int main(int argc, char* argv[]) {
       else { cerr << "ERROR: -O flag requires argument" << endl; return -1; }
     case 'p': print_optimization_passes_info = true; break;
     case 'l': print_layer_info = true; break;
+    case 'g': debug_builder = true; break;
     case 'F': optimize_model_fixed = true; optimize_model = true; break;
     case 'v': ++verbosity; break;
     case 'q': --verbosity; break;
@@ -97,8 +116,6 @@ int main(int argc, char* argv[]) {
     case 'h': print_usage(); return 0;
     }
   }
-
-  cout<<"wilson<<<<<<<<<<<2"<<endl;
 
   std::vector<std::string> optimizationPassNames;
 
@@ -165,7 +182,7 @@ int main(int argc, char* argv[]) {
          << ") than this parser was built against ("
          << common::onnx_ir_version_string(::ONNX_NAMESPACE::IR_VERSION) << ")." << endl;
   }
-
+  
   if( !model_filename.empty() ) {
     if( optimize_model ) {
       std::vector<std::string> passes;
@@ -191,7 +208,7 @@ int main(int argc, char* argv[]) {
       cerr << "ERROR: Problem writing ONNX model" << endl;
     }
   }
-
+ 
   if( !text_filename.empty() ) {
     if( verbosity >= (int)nvinfer1::ILogger::Severity::kWARNING ) {
       cout << "Writing ONNX model (without weights) as text to " << text_filename << endl;
@@ -274,18 +291,18 @@ int main(int argc, char* argv[]) {
       cout << "    Max batch size:     " << max_batch_size << endl;
       cout << "    Max workspace size: " << max_workspace_size / (1024. * 1024) << " MiB" << endl;
     }
-    auto builder_config = common::infer_object(trt_builder->createBuilderConfig());
-    builder_config->setMaxWorkspaceSize(max_workspace_size);
+    trt_builder->setMaxBatchSize(max_batch_size);
+    trt_builder->setMaxWorkspaceSize(max_workspace_size);
     if( fp16 && model_dtype == nvinfer1::DataType::kHALF) {
-      builder_config->setFlag(nvinfer1::BuilderFlag::kFP16);
+      trt_builder->setHalf2Mode(true);
     } else if( model_dtype == nvinfer1::DataType::kINT8 ) {
       // TODO: Int8 support
       //trt_builder->setInt8Mode(true);
       cerr << "ERROR: Int8 mode not yet supported" << endl;
       return -5;
     }
-    cout<<"print via wilson<<<<<<<<<<<"<<endl;
-    auto trt_engine = common::infer_object(trt_builder->buildEngineWithConfig(*trt_network.get(), *builder_config.get()));
+    trt_builder->setDebugSync(debug_builder);
+    auto trt_engine = common::infer_object(trt_builder->buildCudaEngine(*trt_network.get()));
 
     auto engine_plan = common::infer_object(trt_engine->serialize());
     std::ofstream engine_file(engine_filename.c_str());

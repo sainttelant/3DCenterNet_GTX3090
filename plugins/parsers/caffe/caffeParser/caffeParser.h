@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,25 +35,32 @@ public:
     const IBlobNameToTensor* parse(const char* deploy,
                                    const char* model,
                                    nvinfer1::INetworkDefinition& network,
-                                   nvinfer1::DataType weightType) noexcept override;
+                                   nvinfer1::DataType weightType) override;
 
-    const IBlobNameToTensor* parseBuffers(const uint8_t* deployBuffer,
+    const IBlobNameToTensor* parseBuffers(const char* deployBuffer,
                                           size_t deployLength,
-                                          const uint8_t* modelBuffer,
+                                          const char* modelBuffer,
                                           size_t modelLength,
                                           nvinfer1::INetworkDefinition& network,
-                                          nvinfer1::DataType weightType) noexcept override;
+                                          nvinfer1::DataType weightType) override;
 
-    void setProtobufBufferSize(size_t size) noexcept override { mProtobufBufferSize = size; }
-    void setPluginFactoryV2(nvcaffeparser1::IPluginFactoryV2* factory) noexcept override { mPluginFactoryV2 = factory; }
-    void setPluginNamespace(const char* libNamespace) noexcept override { mPluginNamespace = libNamespace; }
-    IBinaryProtoBlob* parseBinaryProto(const char* fileName) noexcept override;
-    void destroy() noexcept override { delete this; }
-    void setErrorRecorder(nvinfer1::IErrorRecorder* recorder) noexcept override { (void)recorder; assert(!"TRT- Not implemented."); }
-    nvinfer1::IErrorRecorder* getErrorRecorder() const noexcept override { assert(!"TRT- Not implemented."); return nullptr; }
+    void setProtobufBufferSize(size_t size) override { mProtobufBufferSize = size; }
+    void setPluginFactory(nvcaffeparser1::IPluginFactory* factory) override { mPluginFactory = factory; }
+    void setPluginFactoryExt(nvcaffeparser1::IPluginFactoryExt* factory) override
+    {
+        mPluginFactory = factory;
+        mPluginFactoryIsExt = true;
+    }
+
+    void setPluginFactoryV2(nvcaffeparser1::IPluginFactoryV2* factory) override { mPluginFactoryV2 = factory; }
+    void setPluginNamespace(const char* libNamespace) override { mPluginNamespace = libNamespace; }
+    IBinaryProtoBlob* parseBinaryProto(const char* fileName) override;
+    void destroy() override { delete this; }
+    void setErrorRecorder(nvinfer1::IErrorRecorder* recorder) override { (void)recorder; assert(!"TRT- Not implemented."); }
+    nvinfer1::IErrorRecorder* getErrorRecorder() const override { assert(!"TRT- Not implemented."); return nullptr; }
 
 private:
-    ~CaffeParser() noexcept override;
+    ~CaffeParser() override;
     std::vector<nvinfer1::PluginField> parseNormalizeParam(const trtcaffe::LayerParameter& msg, CaffeWeightFactory& weightFactory, BlobNameToTensor& tensors);
     std::vector<nvinfer1::PluginField> parsePriorBoxParam(const trtcaffe::LayerParameter& msg, CaffeWeightFactory& weightFactory, BlobNameToTensor& tensors);
     std::vector<nvinfer1::PluginField> parseDetectionOutputParam(const trtcaffe::LayerParameter& msg, CaffeWeightFactory& weightFactory, BlobNameToTensor& tensors);
@@ -77,6 +84,7 @@ private:
     std::vector<void*> mTmpAllocs;
     BlobNameToTensor* mBlobNameToTensor{nullptr};
     size_t mProtobufBufferSize{INT_MAX};
+    nvcaffeparser1::IPluginFactory* mPluginFactory{nullptr};
     nvcaffeparser1::IPluginFactoryV2* mPluginFactoryV2{nullptr};
     bool mPluginFactoryIsExt{false};
     std::vector<nvinfer1::IPluginV2*> mNewPlugins;

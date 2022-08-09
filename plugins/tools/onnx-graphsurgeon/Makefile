@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
 # limitations under the License.
 #
 
-.PHONY: test clean build install_venv install docs
-
-test: docs
-	PYTHONPATH=$(CURDIR) python3 -m pytest tests/ -v -x --pdb
+test:
+	python3 -m pytest tests/ -v -x --pdb
 
 clean:
 	rm -rf dist/ build/ onnx_graphsurgeon.egg-info/
@@ -25,9 +23,8 @@ clean:
 build: clean
 	python3 setup.py bdist_wheel
 
-install: build
+install_venv: build
 	python3 -m pip install --force-reinstall $(CURDIR)/dist/*.whl
 
-docs:
-	mkdir -p build/docs
-	sphinx-build docs build/docs/ -j auto -W
+install: build
+	python3 -m pip install --force-reinstall $(CURDIR)/dist/*.whl --user

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -454,7 +454,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;              //!< The pointer to the engine
     int mBatchSize;                                              //!< The batch size for legacy networks, 0 otherwise.
     std::vector<std::unique_ptr<ManagedBuffer>> mManagedBuffers; //!< The vector of pointers to managed buffers
-    std::vector<void*> mDeviceBindings;                          //!< The vector of device buffers needed for engine execution
+    std::vector<void*> mDeviceBindings; //!< The vector of device buffers needed for engine execution
 };
 
 } // namespace samplesCommon

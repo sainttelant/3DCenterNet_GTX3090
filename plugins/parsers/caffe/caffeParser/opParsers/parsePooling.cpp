@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +36,9 @@ ILayer* parsePooling(INetworkDefinition& network, const trtcaffe::LayerParameter
     int kernelH, kernelW;
     if (p.has_global_pooling() && p.global_pooling())
     {
-        Dims3 dims = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions());
-        kernelH = dims.d[1];
-        kernelW = dims.d[2];
+        DimsCHW dims = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions());
+        kernelH = dims.h();
+        kernelW = dims.w();
     }
     else
     {

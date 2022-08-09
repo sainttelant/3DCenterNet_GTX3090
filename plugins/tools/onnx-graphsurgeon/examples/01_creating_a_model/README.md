@@ -1,9 +1,7 @@
 # Creating An ONNX Model
 
-## Introduction
-
-ONNX GraphSurgeon includes an [IR (intermediate representation)](../../README.md#ir)
-that can be exported to ONNX. Additionally, the IR exposes a simple API so that it is
+ONNX GraphSurgeon includes an [IR (intermediate representation)](../../README.md#ir) 
+that can be exported to ONNX. Additionally, the IR exposes a simple API so that it is 
 possible to build graphs manually.
 
 This example creates an ONNX model containing a single GlobalLpPool node.

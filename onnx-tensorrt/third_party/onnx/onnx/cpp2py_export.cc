@@ -105,11 +105,6 @@ PYBIND11_MODULE(onnx_cpp2py_export, onnx_cpp2py_export) {
       .value("Optional", OpSchema::Optional)
       .value("Variadic", OpSchema::Variadic);
 
-  py::enum_<OpSchema::DifferentiationCategory>(op_schema, "DifferentiationCategory")
-      .value("Unknown", OpSchema::Unknown)
-      .value("Differentiable", OpSchema::Differentiable)
-      .value("NonDifferentiable", OpSchema::NonDifferentiable);
-
   py::class_<OpSchema::FormalParameter>(op_schema, "FormalParameter")
       .def_property_readonly("name", &OpSchema::FormalParameter::GetName)
       .def_property_readonly("types", &OpSchema::FormalParameter::GetTypes)
@@ -118,10 +113,7 @@ PYBIND11_MODULE(onnx_cpp2py_export, onnx_cpp2py_export) {
           "description", &OpSchema::FormalParameter::GetDescription)
       .def_property_readonly("option", &OpSchema::FormalParameter::GetOption)
       .def_property_readonly(
-          "isHomogeneous", &OpSchema::FormalParameter::GetIsHomogeneous)
-      .def_property_readonly(
-        "differentiationCategory",
-        &OpSchema::FormalParameter::GetDifferentiationCategory);
+          "isHomogeneous", &OpSchema::FormalParameter::GetIsHomogeneous);
 
   py::enum_<AttributeProto::AttributeType>(op_schema, "AttrType")
       .value("FLOAT", AttributeProto::FLOAT)
@@ -325,12 +317,6 @@ PYBIND11_MODULE(onnx_cpp2py_export, onnx_cpp2py_export) {
     proto.SerializeToString(&out);
     return py::bytes(out);
   }, "bytes"_a, "check_type"_a = false);
-  
-  shape_inference.def(
-      "infer_shapes_path",
-      [](const std::string& model_path, const std::string& output_path, bool check_type)  -> void {
-        shape_inference::InferShapes(model_path, check_type, output_path);
-      });
 }
 
 } // namespace ONNX_NAMESPACE

@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +86,7 @@ ILayer* parseBatchNormalization(INetworkDefinition& network, const trtcaffe::Lay
     const trtcaffe::BatchNormParameter& p = msg.batch_norm_param();
     bool nvCaffe = weightFactory.getBlobsSize(msg.name()) == 5;
 
-    int C = parserutils::getC(tensors[msg.bottom(0)]->getDimensions());
+    int C = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions()).c();
 
     Weights mean{DataType::kFLOAT, nullptr, 0},
         variance{DataType::kFLOAT, nullptr, 0},

@@ -228,90 +228,6 @@ void check_tensor(const TensorProto& tensor, const CheckerContext& ctx) {
 #undef check_field
 }
 
-void check_sequence(const SequenceProto& sequence, const CheckerContext& ctx) {
-  enforce_has_field(sequence, elem_type);
-  if (sequence.elem_type() == SequenceProto::TENSOR) {
-    for (const TensorProto& tensor : sequence.tensor_values()) {
-      check_tensor(tensor, ctx);
-    }
-  } else if (sequence.elem_type() == SequenceProto::SPARSE_TENSOR) {
-    for (const SparseTensorProto& sparse_tensor :
-         sequence.sparse_tensor_values()) {
-      check_sparse_tensor(sparse_tensor, ctx);
-    }
-  } else if (sequence.elem_type() == SequenceProto::SEQUENCE) {
-    for (const SequenceProto& seq : sequence.sequence_values()) {
-      check_sequence(seq, ctx);
-    }
-  } else if (sequence.elem_type() == SequenceProto::MAP) {
-    for (const MapProto& map : sequence.map_values()) {
-      check_map(map, ctx);
-    }
-  } else {
-    fail_check(
-        "Sequence ( Structure name: ",
-        sequence.name(),
-        ", elem_type: ",
-        sequence.elem_type(),
-        ") is not have a valid element type.");
-  }
-}
-
-void check_map(const MapProto& map, const CheckerContext& ctx) {
-  enforce_has_field(map, key_type);
-  if (map.key_type() == TensorProto::UNDEFINED) {
-    fail_check(
-        "setting key_type field (map name: ",
-        map.name(),
-        ") to UNDEFINED is not allowed");
-  }
-  // Check if key is a valid type, specifically INT8, INT16, INT32, INT64,
-  // UINT8, UINT16, UINT32, UINT64, or STRING.
-  if ((map.key_type() == TensorProto::FLOAT) ||
-      (map.key_type() == TensorProto::BOOL) ||
-      (map.key_type() == TensorProto::FLOAT16) ||
-      (map.key_type() == TensorProto::COMPLEX64) ||
-      (map.key_type() == TensorProto::COMPLEX128)) {
-    fail_check(
-        "setting key_type field (map name: ",
-        map.name(),
-        ") to invalid TensorProto key_type ",
-        map.key_type(),
-        " is not allowed");
-  }
-
-  // MapProto will use either keys or string_keys, so only one should be > 0.
-  if ((map.keys_size() > 0) && (map.string_keys_size() > 0)) {
-    fail_check(
-        "Map (name: ",
-        map.name(),
-        ") should not contain more than one keys field.");
-  }
-
-  int num_keys = map.keys_size() + map.string_keys_size();
-  int num_values = 0;
-
-  enforce_has_field(map, values);
-  check_sequence(map.values(), ctx);
-
-  if (map.values().elem_type() == SequenceProto::TENSOR) {
-    num_values = map.values().tensor_values_size();
-  } else if (map.values().elem_type() == SequenceProto::SPARSE_TENSOR) {
-    num_values = map.values().sparse_tensor_values_size();
-  } else if (map.values().elem_type() == SequenceProto::SEQUENCE) {
-    num_values = map.values().sequence_values_size();
-  } else if (map.values().elem_type() == SequenceProto::MAP) {
-    num_values = map.values().map_values_size();
-  }
-
-  if (num_keys != num_values) {
-    fail_check(
-        "Length of map keys and map values are not the same (map name: ",
-        map.name(),
-        ")");
-  }
-}
-
 // Check that the index data stored in a SparseTensorProto is valid.
 // indices: a 1-dimensional tensor; indices[i] represents the
 // linearized index value for the i-th nonzero value.
@@ -431,6 +347,8 @@ void check_sparse_tensor(
 
   int dense_rank = sparse_tensor_proto.dims_size();
   if (dense_rank == 0) {
+    // TODO: Should we add a name field for a sparse-tensor-proto?
+    // Currently, values has a name, but message may be a bit confusing.
     fail_check(
         "Sparse tensor (", values.name(), ") must have a dense-rank > 0");
   }
@@ -580,11 +498,23 @@ void check_node(
         ") has zero input and zero output.");
   }
 
-  // If encounter experimental op, stop checking
-  if (check_is_experimental_op(node.op_type())) {
-    std::cerr
-        << "Warning: Checker does not support models with experimental ops: "
-        << node.op_type() << std::endl;
+  // Put the removed experimental ops here
+  static std::set<std::string> experimental_ops = {"ATen",
+                                                   "Affine",
+                                                   "ConstantFill",
+                                                   "Crop",
+                                                   "DynamicSlice",
+                                                   "GRUUnit",
+                                                   "GivenTensorFill",
+                                                   "ImageScaler",
+                                                   "ParametricSoftplus",
+                                                   "Scale",
+                                                   "ScaledTanh"};
+  if (experimental_ops.count(node.op_type())) {
+    std::cerr << "Warning: " << node.op_type() << " was a removed "
+              << "experimental ops. In the future, we may directly "
+              << "reject this operator. Please update your model as soon "
+              << "as possible." << std::endl;
     return;
   }
 
@@ -604,8 +534,7 @@ void check_node(
       node.op_type(), domain_version, node.domain());
   if (!schema) {
     if (node.domain() == ONNX_DOMAIN || node.domain() == AI_ONNX_ML_DOMAIN ||
-        node.domain() == "ai.onnx" ||
-        node.domain() == AI_ONNX_TRAINING_DOMAIN) {
+        node.domain() == "ai.onnx" || node.domain() == AI_ONNX_TRAINING_DOMAIN) {
       // fail the checker if op in built-in domains has no schema
       fail_check(
           "No Op registered for " + node.op_type() +
@@ -658,50 +587,27 @@ void check_graph(
     lex_ctx.add(value_info.name());
   }
 
-  std::unordered_set<
-      std::reference_wrapper<const std::string>,
-      std::hash<std::string>, std::equal_to<std::string>>
-      initializer_name_checker;
-
   for (const auto& init : graph.initializer()) {
-    enforce_has_field(init, name);
-    const auto& name = init.name();
-    if (name.empty()) {
-      fail_check("Tensor initializers must have a non-empty name");
-    }
-
-    if (!initializer_name_checker.insert(std::cref(name)).second) {
-      fail_check(name + " initializer name is not unique");
-    }
-
-    check_tensor(init, ctx);
-
     if (ctx.get_ir_version() <= 0x00000003) {
       // Initializers are a subset of graph inputs for IR_VERSION <= 3
-      if (!lex_ctx.this_graph_has(name)) {
-        fail_check(name + " in initializer but not in graph input");
+      if (!lex_ctx.this_graph_has(init.name())) {
+        fail_check(init.name() + " in initializer but not in graph input");
       }
     } else {
       // An initializer is allowed to have the same name as an input,
       // but is not required to (for IR_VERSION >= 4)
-      lex_ctx.add(name);
+      lex_ctx.add(init.name());
     }
+    check_tensor(init, ctx);
   }
 
+  // TODO: Need to check that sparse-initializers names are distinct from
+  // initializer names. It looks like the existing checker does not check for
+  // certain duplication of names: e.g., two entries in the initializer list
+  // with same name. Will add a new integrated check.
   for (const auto& sparse_init : graph.sparse_initializer()) {
-    const auto& values = sparse_init.values();
-    enforce_has_field(values, name);
-    const auto& name = values.name();
-    if (name.empty()) {
-      fail_check("Sparse tensor initializers must have a non-empty name");
-    }
-    if (!initializer_name_checker.insert(std::cref(name)).second) {
-      fail_check(
-          name +
-          " sparse initializer name is not unique across initializers and sparse_initializers");
-    }
     check_sparse_tensor(sparse_init, ctx);
-    lex_ctx.add(name);
+    lex_ctx.add(sparse_init.values().name());
   }
 
   for (const auto& node : graph.node()) {
@@ -884,9 +790,8 @@ void check_model(const std::string& model_path) {
         model_path,
         ". Please check if it is a valid file.");
   }
-  std::string data{
-      std::istreambuf_iterator<char>{model_stream},
-      std::istreambuf_iterator<char>{}};
+  std::string data{std::istreambuf_iterator<char>{model_stream},
+                   std::istreambuf_iterator<char>{}};
   if (!ParseProtoFromBytes(&model, data.c_str(), data.size())) {
     fail_check(
         "Unable to parse model from file:",
@@ -907,23 +812,6 @@ void check_model(const std::string& model_path) {
 void check_model(const ModelProto& model) {
   CheckerContext ctx;
   check_model(model, ctx);
-}
-
-std::set<std::string> experimental_ops = {
-    "ATen",
-    "Affine",
-    "ConstantFill",
-    "Crop",
-    "DynamicSlice",
-    "GRUUnit",
-    "GivenTensorFill",
-    "ImageScaler",
-    "ParametricSoftplus",
-    "Scale",
-    "ScaledTanh"};
-
-bool check_is_experimental_op(std::string node_op_type) {
-  return (experimental_ops.count(node_op_type)) ? true : false;
 }
 
 #undef fail_check

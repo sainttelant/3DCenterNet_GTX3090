@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "cuda_fp16.h"
 #include "plugin.h"
 #include <algorithm>
 
@@ -27,12 +25,8 @@ size_t detectionForwardBBoxDataSize(int N, int C1, DataType DT_BBOX)
     {
         return N * C1 * sizeof(float);
     }
-    if (DT_BBOX == DataType::kHALF)
-    {
-        return N * C1 * sizeof(__half);
-    }
 
-    printf("Only FP32/FP16 type bounding boxes are supported.\n");
+    printf("Only FP32 type bounding boxes are supported.\n");
     return (size_t) -1;
 }
 
@@ -42,12 +36,7 @@ size_t detectionForwardBBoxPermuteSize(bool shareLocation, int N, int C1, DataTy
     {
         return shareLocation ? 0 : N * C1 * sizeof(float);
     }
-    if (DT_BBOX == DataType::kHALF)
-    {
-        return shareLocation ? 0 : N * C1 * sizeof(__half);
-    }
-
-    printf("Only FP32/FP16 type bounding boxes are supported.\n");
+    printf("Only FP32 type bounding boxes are supported.\n");
     return (size_t) -1;
 }
 

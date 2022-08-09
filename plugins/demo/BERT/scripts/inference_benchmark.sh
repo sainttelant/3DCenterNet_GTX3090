@@ -1,6 +1,6 @@
 #!/bin/bash
-#
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 # Usage: run_benchmark(batch_sizes, model_variant: (base/large), precision: (int8/int8-qat/fp16/fp32), sequence_length, max_batch_size, gpu_arch)
 run_benchmark() {
@@ -24,18 +23,23 @@ SEQUENCE_LENGTH="${4}"
 MAX_BATCH="${5}"
 GPU_ARCH="${6}"
 
-CHECKPOINTS_DIR="models/fine-tuned/bert_tf_ckpt_${MODEL_VARIANT}_qa_squad2_amp_${SEQUENCE_LENGTH}_v19.03.1"
-SQUAD_DIR="BERT/squad"
-ENGINE_NAME="engines/bert_${MODEL_VARIANT}_${PRECISION}_bs${MAX_BATCH}_seqlen${SEQUENCE_LENGTH}_benchmark.engine"
+if [ "${PRECISION}" == "int8" ] || [ "${PRECISION}" == "int8-qat" ]; then
+    CHECKPOINT_PRECISION="fp16"
+else
+    CHECKPOINT_PRECISION="${PRECISION}"
+fi;
+CHECKPOINTS_DIR="/workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_${MODEL_VARIANT}_${CHECKPOINT_PRECISION}_${SEQUENCE_LENGTH}_v2"
+SQUAD_DIR="/workspace/TensorRT/demo/BERT/squad"
+ENGINE_NAME="/workspace/TensorRT/demo/BERT/engines/bert_${MODEL_VARIANT}_${PRECISION}_bs${MAX_BATCH}_seqlen${SEQUENCE_LENGTH}_benchmark.engine"
 # QAT Checkpoint - available only for BERT-Large
-QAT_CHECKPOINT="models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx"
-CUDAGRAPH_PERFBIN="build/perf"
+QAT_CHECKPOINT="/workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx"
+CUDAGRAPH_PERFBIN="/workspace/TensorRT/demo/BERT/build/perf"
 
 echo "==== Benchmarking BERT ${MODEL_VARIANT} ${PRECISION} SEQLEN ${SEQUENCE_LENGTH} on ${GPU_ARCH} ===="
 if [ ! -f ${ENGINE_NAME} ]; then
     if [ ! -d ${CHECKPOINTS_DIR} ]; then
-        echo "Downloading checkpoints: scripts/download_model.sh ${MODEL_VARIANT} ${SEQUENCE_LENGTH}"
-        scripts/download_model.sh "${MODEL_VARIANT}" "${SEQUENCE_LENGTH}"
+        echo "Downloading checkpoints: scripts/download_model.sh ${MODEL_VARIANT} ${CHECKPOINT_PRECISION} ${SEQUENCE_LENGTH}"
+        scripts/download_model.sh "${MODEL_VARIANT}" "${CHECKPOINT_PRECISION}" "${SEQUENCE_LENGTH}"
     fi;
     if [ "${PRECISION}" == "int8-qat" ]; then
         if [ ${MODEL_VARIANT} != "large" ]; then
@@ -49,7 +53,7 @@ if [ ! -f ${ENGINE_NAME} ]; then
         PRECISION="int8"
         BUILDER_ARGS="-x ${QAT_CHECKPOINT}"
     else
-        BUILDER_ARGS="-m ${CHECKPOINTS_DIR}/model.ckpt"
+        BUILDER_ARGS="-m ${CHECKPOINTS_DIR}/model.ckpt-8144"
     fi;
     BUILDER_ARGS="${BUILDER_ARGS} -o ${ENGINE_NAME} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -c ${CHECKPOINTS_DIR} -v ${CHECKPOINTS_DIR}/vocab.txt --${PRECISION}"
     if [ "${PRECISION}" == "int8" ]; then
@@ -276,3 +280,4 @@ run_benchmark "-b 24" "large" "fp32" "384" "24" "${arg_gpu}"
 run_benchmark "-b 32" "large" "fp32" "384" "32" "${arg_gpu}"
 run_benchmark "-b 64" "large" "fp32" "384" "64" "${arg_gpu}"
 run_benchmark "-b 128" "large" "fp32" "384" "128" "${arg_gpu}"
+

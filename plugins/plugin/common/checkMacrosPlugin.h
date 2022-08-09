@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,18 @@
 #include "NvInfer.h"
 #include <sstream>
 
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
-
 #ifdef _MSC_VER
 #define FN_NAME __FUNCTION__
 #else
 #define FN_NAME __func__
 #endif
-
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
+#if __cplusplus < 201103L
+#define OVERRIDE
+#define NORETURN
+#else
+#define OVERRIDE override
+#define NORETURN [[noreturn]]
+#endif
 
 namespace nvinfer1
 {
@@ -47,23 +48,20 @@ class LogStream : public std::ostream
     Buf buffer;
 
 public:
-    LogStream() : std::ostream(&buffer) {};
+    LogStream()
+        : std::ostream(&buffer){};
 };
 
 extern LogStream<ILogger::Severity::kERROR> gLogError;
 extern LogStream<ILogger::Severity::kWARNING> gLogWarning;
 extern LogStream<ILogger::Severity::kINFO> gLogInfo;
-extern LogStream<ILogger::Severity::kVERBOSE> gLogVerbose;
 
 void reportAssertion(const char* msg, const char* file, int line);
 void logError(const char* msg, const char* file, const char* fn, int line);
 
-[[noreturn]] void throwCudaError(
-    const char* file, const char* function, int line, int status, const char* msg = nullptr);
-[[noreturn]] void throwCudnnError(
-    const char* file, const char* function, int line, int status, const char* msg = nullptr);
-[[noreturn]] void throwCublasError(
-    const char* file, const char* function, int line, int status, const char* msg = nullptr);
+NORETURN void throwCudaError(const char* file, const char* function, int line, int status, const char* msg = nullptr);
+NORETURN void throwCudnnError(const char* file, const char* function, int line, int status, const char* msg = nullptr);
+NORETURN void throwCublasError(const char* file, const char* function, int line, int status, const char* msg = nullptr);
 
 class TRTException : public std::exception
 {
@@ -78,7 +76,10 @@ public:
     {
     }
     virtual void log(std::ostream& logStream) const;
-    void setMessage(const char* msg) { message = msg; }
+    void setMessage(const char* msg)
+    {
+        message = msg;
+    }
 
 protected:
     const char* file{nullptr};
@@ -116,17 +117,9 @@ public:
     }
 };
 
-
-inline void caughtError(const std::exception& e)
-{
-    gLogError << e.what() << std::endl;
-}
 } // namespace plugin
 
 } // namespace nvinfer1
-
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
 
 #define API_CHECK(condition)                                                                                           \
     {                                                                                                                  \
@@ -146,24 +139,24 @@ inline void caughtError(const std::exception& e)
         }                                                                                                              \
     }
 
-#define API_CHECK_WEIGHTS(Name)        \
-    API_CHECK((Name).values != nullptr); \
-    API_CHECK((Name).count > 0);         \
+#define API_CHECK_WEIGHTS(Name)                                                                                        \
+    API_CHECK((Name).values != nullptr);                                                                               \
+    API_CHECK((Name).count > 0);                                                                                       \
     API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
-#define API_CHECK_WEIGHTS0(Name)                                                     \
-    API_CHECK((Name).count >= 0);                                                      \
-    API_CHECK((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr)); \
+#define API_CHECK_WEIGHTS0(Name)                                                                                       \
+    API_CHECK((Name).count >= 0);                                                                                      \
+    API_CHECK((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr));                             \
     API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
-#define API_CHECK_WEIGHTS_RETVAL(Name, retval)        \
-    API_CHECK_RETVAL((Name).values != nullptr, retval); \
-    API_CHECK_RETVAL((Name).count > 0, retval);         \
+#define API_CHECK_WEIGHTS_RETVAL(Name, retval)                                                                         \
+    API_CHECK_RETVAL((Name).values != nullptr, retval);                                                                \
+    API_CHECK_RETVAL((Name).count > 0, retval);                                                                        \
     API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
-#define API_CHECK_WEIGHTS0_RETVAL(Name, retval)                                                     \
-    API_CHECK_RETVAL((Name).count >= 0, retval);                                                      \
-    API_CHECK_RETVAL((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr), retval); \
+#define API_CHECK_WEIGHTS0_RETVAL(Name, retval)                                                                        \
+    API_CHECK_RETVAL((Name).count >= 0, retval);                                                                       \
+    API_CHECK_RETVAL((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr), retval);              \
     API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
 #define API_CHECK_NULL(param) API_CHECK((param) != nullptr)
@@ -174,26 +167,7 @@ inline void caughtError(const std::exception& e)
 #define API_CHECK_ENUM_RANGE_RETVAL(Type, val, retval)                                                                 \
     API_CHECK_RETVAL(int(val) >= 0 && int(val) < EnumMax<Type>(), retval)
 
-#define CHECK_CUDA(call)                                                                                               \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        cudaError_t status = call;                                                                                     \
-        if (status != cudaSuccess)                                                                                     \
-        {                                                                                                              \
-            return status;                                                                                             \
-        }                                                                                                              \
-    } while (0)
-
-#define CHECK_CUDNN(call)                                                                                              \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        cudnnStatus_t status = call;                                                                                   \
-        if (status != CUDNN_STATUS_SUCCESS)                                                                            \
-        {                                                                                                              \
-            return status;                                                                                             \
-        }                                                                                                              \
-    } while (0)
-
+#ifndef TRT_PLUGIN_H
 #define CUBLASASSERTMSG(status_, msg)                                                                                  \
     {                                                                                                                  \
         auto s_ = status_;                                                                                             \
@@ -270,7 +244,5 @@ inline void caughtError(const std::exception& e)
             nvinfer1::plugin::logError(#status_ " failure.", __FILE__, FN_NAME, __LINE__);                             \
     }
 
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
-
+#endif // TRT_PLUGIN_H
 #endif /*CHECK_MACROS_PLUGIN_H*/

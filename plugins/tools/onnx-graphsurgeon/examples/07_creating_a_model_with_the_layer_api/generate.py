@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,13 @@ import onnx
 
 print("Graph.layer Help:\n{}".format(gs.Graph.layer.__doc__))
 
+# For automatically propagating data types
+def propagate_dtype(outputs, dtype):
+    for output in outputs:
+        output.dtype = dtype
+    return outputs
+
+
 # We can use `Graph.register()` to add a function to the Graph class. Later, we can invoke the function
 # directly on instances of the graph, e.g., `graph.add(...)`
 @gs.Graph.register()
@@ -32,25 +39,25 @@ def add(self, a, b):
     # will generate distinct tensors. However, this does NOT guarantee that there will be no overlap with
     # other tensors in the graph. Hence, you should choose the prefixes to minimize the possibility of
     # collisions.
-    return self.layer(op="Add", inputs=[a, b], outputs=["add_out_gs"])
+    return propagate_dtype(self.layer(op="Add", inputs=[a, b], outputs=["add_out_gs"]), a.dtype or b.dtype)
 
 
 @gs.Graph.register()
 def mul(self, a, b):
-    return self.layer(op="Mul", inputs=[a, b], outputs=["mul_out_gs"])
+    return propagate_dtype(self.layer(op="Mul", inputs=[a, b], outputs=["mul_out_gs"]), a.dtype or b.dtype)
 
 
 @gs.Graph.register()
 def gemm(self, a, b, trans_a=False, trans_b=False):
     attrs = {"transA": int(trans_a), "transB": int(trans_b)}
-    return self.layer(op="Gemm", inputs=[a, b], outputs=["gemm_out_gs"], attrs=attrs)
+    return propagate_dtype(self.layer(op="Gemm", inputs=[a, b], outputs=["gemm_out_gs"], attrs=attrs), a.dtype or b.dtype)
 
 
 # You can also specify a set of opsets when regsitering a function.
 # By default, the function is registered for all opsets lower than Graph.DEFAULT_OPSET
 @gs.Graph.register(opsets=[11])
 def relu(self, a):
-    return self.layer(op="Relu", inputs=[a], outputs=["act_out_gs"])
+    return propagate_dtype(self.layer(op="Relu", inputs=[a], outputs=["act_out_gs"]), a.dtype)
 
 
 # Note that the same function can be defined in different ways for different opsets.
@@ -88,10 +95,5 @@ dense = graph.relu(*graph.add(*axt, B))
 C = gs.Constant(name="C", values=np.ones(shape=(64, 64), dtype=np.float32))
 D = np.ones(shape=(64, 64), dtype=np.float32)
 graph.outputs = graph.add(*graph.mul(*dense, C), D)
-
-# Finally, we need to set the output datatype to make this a valid ONNX model.
-#   In our case, all the data types are float32.
-for out in graph.outputs:
-    out.dtype = np.float32
 
 onnx.save(gs.export_onnx(graph), "model.onnx")

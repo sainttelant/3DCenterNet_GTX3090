@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ std::vector<nvinfer1::PluginField> CaffeParser::parseNormalizeParam(const trtcaf
     // If .caffemodel is not provided, need to randomize the weight
     if (!weightFactory.isInitialized())
     {
-        int C = parserutils::getC(tensors[msg.bottom(0)]->getDimensions());
+        int C = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions()).c();
         w.emplace_back(weightFactory.allocateWeights(C, std::normal_distribution<float>(0.0F, 1.0F)));
     }
     else
@@ -308,12 +308,12 @@ std::vector<nvinfer1::PluginField> CaffeParser::parseRPROIParam(const trtcaffe::
     return f;
 }
 
-const IBlobNameToTensor* CaffeParser::parseBuffers(const uint8_t* deployBuffer,
+const IBlobNameToTensor* CaffeParser::parseBuffers(const char* deployBuffer,
                                                    std::size_t deployLength,
-                                                   const uint8_t* modelBuffer,
+                                                   const char* modelBuffer,
                                                    std::size_t modelLength,
                                                    INetworkDefinition& network,
-                                                   DataType weightType) noexcept
+                                                   DataType weightType)
 {
     mDeploy = std::unique_ptr<trtcaffe::NetParameter>(new trtcaffe::NetParameter);
     google::protobuf::io::ArrayInputStream deployStream(deployBuffer, deployLength);
@@ -341,7 +341,7 @@ const IBlobNameToTensor* CaffeParser::parseBuffers(const uint8_t* deployBuffer,
 const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
                                             const char* modelFile,
                                             INetworkDefinition& network,
-                                            DataType weightType) noexcept
+                                            DataType weightType)
 {
     CHECK_NULL_RET_NULL(deployFile)
 
@@ -391,12 +391,12 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
         {
             if (mDeploy->input_shape_size())
             {
-                dims = Dims3{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+                dims = DimsCHW{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
             }
             else
             {
                 // Deprecated, but still used in a lot of networks
-                dims = Dims3{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+                dims = DimsCHW{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
             }
         }
         else
@@ -404,12 +404,12 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
             std::cout << "Warning, setting batch size to 1. Update the dimension after parsing due to using explicit batch size." << std::endl;
             if (mDeploy->input_shape_size())
             {
-                dims = Dims4{1, (int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+                dims = DimsNCHW{1, (int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
             }
             else
             {
                 // Deprecated, but still used in a lot of networks
-                dims = Dims4{1, (int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+                dims = DimsNCHW{1, (int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
             }
         }
         ITensor* tensor = network.addInput(mDeploy->input().Get(i).c_str(), DataType::kFLOAT, dims);
@@ -441,10 +441,50 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
                 }
             }
         }
+
+        // If there is a pluginFactory provided, use layer name matching to handle the plugin construction
+        if (mPluginFactory && mPluginFactory->isPlugin(layerMsg.name().c_str()))
+        {
+            std::vector<Weights> w = weights.getAllWeights(layerMsg.name());
+            IPlugin* plugin = mPluginFactory->createPlugin(layerMsg.name().c_str(), w.empty() ? nullptr : &w[0], w.size());
+            std::vector<ITensor*> inputs;
+            for (int i = 0, n = layerMsg.bottom_size(); i < n; i++)
+            {
+                inputs.push_back((*mBlobNameToTensor)[layerMsg.bottom(i)]);
+            }
+
+            bool isExt = mPluginFactoryIsExt && static_cast<IPluginFactoryExt*>(mPluginFactory)->isPluginExt(layerMsg.name().c_str());
+
+            ILayer* layer = isExt ? network.addPluginExt(&inputs[0], int(inputs.size()), *static_cast<IPluginExt*>(plugin))
+                                  : network.addPlugin(&inputs[0], int(inputs.size()), *plugin);
+
+            layer->setName(layerMsg.name().c_str());
+            if (plugin->getNbOutputs() != layerMsg.top_size())
+            {
+                std::cout << "Plugin layer output count is not equal to caffe output count" << std::endl;
+                ok = false;
+            }
+            for (int i = 0, n = std::min(layer->getNbOutputs(), layerMsg.top_size()); i < n; i++)
+            {
+                (*mBlobNameToTensor)[layerMsg.top(i)] = layer->getOutput(i);
+            }
+
+            if (layer == nullptr)
+            {
+                std::cout << "error parsing layer type " << layerMsg.type() << " index " << i << std::endl;
+                ok = false;
+            }
+
+            continue;
+        }
         if (getInferLibVersion() >= 5000)
         {
             if (mPluginFactoryV2 && mPluginFactoryV2->isPluginV2(layerMsg.name().c_str()))
             {
+                if (mPluginFactory)
+                {
+                    RETURN_AND_LOG_ERROR(nullptr, "Both IPluginFactory and IPluginFactoryV2 are set. If using TensorRT 5.0 or later, switch to IPluginFactoryV2");
+                }
                 std::vector<Weights> w = weights.getAllWeights(layerMsg.name());
                 nvinfer1::IPluginV2* plugin = mPluginFactoryV2->createPlugin(layerMsg.name().c_str(), w.empty() ? nullptr : &w[0], w.size(), mPluginNamespace.c_str());
                 std::vector<ITensor*> inputs;
@@ -556,14 +596,14 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
                     Dims d;
                     if (network.hasImplicitBatchDimension())
                     {
-                        d = Dims3{(int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
+                        d = DimsCHW{(int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
                     }
                     else
                     {
                         std::cout << "Warning, setting batch size to 1. Update the dimension after parsing due to "
                                      "using explicit batch size."
                                   << std::endl;
-                        d = Dims4{1, (int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
+                        d = DimsNCHW{1, (int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
                     }
                     ITensor* tensor = network.addInput(layerMsg.top(i).c_str(), DataType::kFLOAT, d);
                     (*mBlobNameToTensor)[layerMsg.top().Get(i)] = tensor;
@@ -611,7 +651,7 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
     return ok && weights.isOK() && mBlobNameToTensor->isOK() ? mBlobNameToTensor : nullptr;
 }
 
-IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
+IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName)
 {
     CHECK_NULL_RET_NULL(fileName)
     using namespace google::protobuf::io;
@@ -635,7 +675,7 @@ IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
         RETURN_AND_LOG_ERROR(nullptr, "parseBinaryProto: Could not parse mean file");
     }
 
-    Dims4 dims{1, 1, 1, 1};
+    DimsNCHW dims{1, 1, 1, 1};
     if (blob.has_shape())
     {
         int size = blob.shape().dim_size(), s[4] = {1, 1, 1, 1};
@@ -644,14 +684,14 @@ IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
             assert(blob.shape().dim(i) < INT32_MAX);
             s[i] = static_cast<int>(blob.shape().dim(i));
         }
-        dims = Dims4{s[0], s[1], s[2], s[3]};
+        dims = DimsNCHW{s[0], s[1], s[2], s[3]};
     }
     else
     {
-        dims = Dims4{blob.num(), blob.channels(), blob.height(), blob.width()};
+        dims = DimsNCHW{blob.num(), blob.channels(), blob.height(), blob.width()};
     }
 
-    const int dataSize = parserutils::volume(dims);
+    const int dataSize = dims.n() * dims.c() * dims.h() * dims.w();
     assert(dataSize > 0);
 
     const trtcaffe::Type blobProtoDataType = CaffeWeightFactory::getBlobProtoDataType(blob);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,13 @@
  */
 #ifndef TRT_PLUGIN_H
 #define TRT_PLUGIN_H
-#include "checkMacrosPlugin.h"
-
 #include "NvInferPlugin.h"
-#include <cstring>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
 
-#ifndef TRT_LEGACY_PLUGIN_H
 // Enumerator for status
 typedef enum
 {
@@ -41,25 +37,15 @@ namespace nvinfer1
 namespace plugin
 {
 
-class BasePlugin : public IPluginV2
-{
-protected:
-    void setPluginNamespace(const char* libNamespace) noexcept override { mNamespace = libNamespace; }
-
-    const char* getPluginNamespace() const noexcept override { return mNamespace.c_str(); }
-
-    std::string mNamespace;
-};
-
 class BaseCreator : public IPluginCreator
 {
 public:
-    void setPluginNamespace(const char* libNamespace) noexcept override
+    void setPluginNamespace(const char* libNamespace) override
     {
         mNamespace = libNamespace;
     }
 
-    const char* getPluginNamespace() const noexcept override
+    const char* getPluginNamespace() const override
     {
         return mNamespace.c_str();
     }
@@ -72,7 +58,7 @@ protected:
 template <typename T>
 void write(char*& buffer, const T& val)
 {
-    std::memcpy(buffer, &val, sizeof(T));
+    *reinterpret_cast<T*>(buffer) = val;
     buffer += sizeof(T);
 }
 
@@ -80,8 +66,7 @@ void write(char*& buffer, const T& val)
 template <typename T>
 T read(const char*& buffer)
 {
-    T val{};
-    std::memcpy(&val, buffer, sizeof(T));
+    T val = *reinterpret_cast<const T*>(buffer);
     buffer += sizeof(T);
     return val;
 }
@@ -90,9 +75,42 @@ T read(const char*& buffer)
 } // namespace nvinfer1
 
 #ifndef DEBUG
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
-
+#ifndef CHECK_MACROS_PLUGIN_H
+#define ASSERT(assertion)                                                                                              \
+    {                                                                                                                  \
+        if (!(assertion))                                                                                              \
+        {                                                                                                              \
+            std::cerr << "#assertion" << __FILE__ << "," << __LINE__ << std::endl;                                     \
+            abort();                                                                                                   \
+        }                                                                                                              \
+    }
+#define FAIL(msg)                                                                                                      \
+    {                                                                                                                  \
+        fprintf(stderr, "Failure - " #msg ", %s:%d\n", __FILE__, __LINE__);                                            \
+        abort();                                                                                                       \
+    }
+#define CUASSERT(status_)                                                                                              \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != cudaSuccess)                                                                                         \
+        {                                                                                                              \
+            std::cerr << __FILE__ << ", " << __LINE__ << ", " << s_ << ", " << cudaGetErrorString(s_) << std::endl;    \
+        }                                                                                                              \
+    }
+#define CUBLASASSERT(status_)                                                                                          \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != CUBLAS_STATUS_SUCCESS)                                                                               \
+        {                                                                                                              \
+            std::cerr << __FILE__ << ", " << __LINE__ << ", " << s_ << std::endl;                                      \
+        }                                                                                                              \
+    }
+#define CUERRORMSG(status_)                                                                                            \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != 0)                                                                                                   \
+            std::cerr << __FILE__ << ", " << __LINE__ << ", " << s_ << std::endl;                                      \
+    }
 #define CHECK(status)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
@@ -177,9 +195,7 @@ T read(const char*& buffer)
         printf(__VA_ARGS__);                                                                                           \
     } while (0)
 
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
-#endif // TRT_LEGACY_PLUGIN_H
+#endif // CHECK_MACROS_H
 #endif
 
 #endif // TRT_PLUGIN_H

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,28 +16,4 @@
 
 add_custom_target(samples)
 
-set(OPENSOURCE_SAMPLES_LIST
-    sampleAlgorithmSelector
-    sampleCharRNN
-    sampleDynamicReshape
-    sampleFasterRCNN
-    sampleGoogleNet
-    sampleINT8
-    sampleINT8API
-    sampleMNIST
-    sampleMNISTAPI
-    sampleNMT
-    sampleOnnxMNIST
-    sampleIOFormats
-    sampleSSD
-    sampleUffFasterRCNN
-    sampleUffMaskRCNN
-    sampleUffMNIST
-    sampleUffPluginV2Ext
-    sampleUffSSD
-    sampleOnnxMnistCoordConvAC
-    trtexec)
-
-foreach(SAMPLE_ITER ${OPENSOURCE_SAMPLES_LIST})
-    add_subdirectory(${SAMPLE_ITER})
-endforeach(SAMPLE_ITER)
+add_subdirectory(opensource)

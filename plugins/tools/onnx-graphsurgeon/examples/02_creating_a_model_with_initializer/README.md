@@ -1,7 +1,5 @@
 # Creating An ONNX Model With An Initializer
 
-## Introduction
-
 This example creates an ONNX model containing a single Convolution node with weights.
 
 `Constant`s in ONNX GraphSurgeon are automatically exported as initializers in the ONNX graph.

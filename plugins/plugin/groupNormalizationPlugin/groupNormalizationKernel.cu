@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ __global__ void scaleShiftChannelsInplaceKernel(T* inOut, const int ld, const fl
 }
 
 template <typename T>
-cudaError_t scaleShiftChannelsInplace(T* inOut, const int B, const int C, const int channelVolume, const float* beta,
+void scaleShiftChannelsInplace(T* inOut, const int B, const int C, const int channelVolume, const float* beta,
     const float* gamma, cudaStream_t stream)
 {
 
@@ -53,10 +53,10 @@ cudaError_t scaleShiftChannelsInplace(T* inOut, const int B, const int C, const 
 
     scaleShiftChannelsInplaceKernel<T, TPB><<<grid, TPB, 0, stream>>>(inOut, channelVolume, beta, gamma);
 
-    return cudaPeekAtLastError();
+    CUASSERT(cudaPeekAtLastError());
 }
 
-template cudaError_t scaleShiftChannelsInplace<float>(float* inOut, const int B, const int C, const int channelVolume, const float* beta,
+template void scaleShiftChannelsInplace<float>(float* inOut, const int B, const int C, const int channelVolume, const float* beta,
     const float* gamma, cudaStream_t stream);
 } /* plugin */
 } /* nvinfer1 */

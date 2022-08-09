@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #pragma once
@@ -26,7 +44,7 @@ public:
     ShapeTensor(int rank_, std::vector<int64_t>&& values_);
 
     //! Create ShapeTensor representing value of TensorOrWeights.
-    ShapeTensor(IImporterContext* ctx, TensorOrWeights& t);
+    ShapeTensor(TensorOrWeights& t);
 
     //! Construct ShapeTensor equivalent to applying IShapeLayer depth times.
     //! The depth may be in [0,3].
@@ -97,6 +115,13 @@ public:
         return mValues[k];
     }
 
+    //! Return underlying mValues
+    std::vector<int64_t>& getValues()
+    {
+        assert(mAllValuesKnown);
+        return mValues;
+    }
+
     //! Return true if x and y always have the same value.
     friend bool operator==(const ShapeTensor& x, const ShapeTensor& y);
     friend ShapeTensor shapeOf(const ShapeTensor& t);
@@ -133,7 +158,7 @@ private:
     //! When mAllValuesKnown==true, all the values in mValues are correct
     //! and mValues.size() == mSize.
     //! When mAllValuesKnown==false, only the non-negative values in mValues
-    //! are guaranteed to be correct, and only so if mValues.size() == mSize.
+    //! are guranteed to be correct, and only so if mValues.size() == mSize.
     std::vector<int64_t> mValues;
 };
 

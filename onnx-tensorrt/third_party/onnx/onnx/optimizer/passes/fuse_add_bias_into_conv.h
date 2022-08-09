@@ -94,16 +94,8 @@ struct FuseAddBiasIntoConv final : public PredicateBasedPass {
         Node* squeeze = graph.create(kSqueeze, 1);
         std::vector<int64_t> axes(bias_shape.size() - 1);
         std::iota(axes.begin(), axes.end(), 0);
-        Tensor t;
-        t.elem_type() = TensorProto_DataType_INT64;
-        auto& data = t.int64s();
-        // Create axes input tensor
-        for (int64_t axis : axes) {
-          data.emplace_back(axis);
-        }
+        squeeze->is_(kaxes, std::move(axes));
         squeeze->addInput(conv_3rd_input);
-        Value* axes_input = graph.addInitializerAndInput(t);
-        squeeze->addInput(axes_input);
         conv_3rd_input = squeeze->output();
         squeeze->insertBefore(orig_conv->node());
       }
@@ -142,16 +134,8 @@ struct FuseAddBiasIntoConv final : public PredicateBasedPass {
       std::iota(axes.begin(), axes.end(), static_cast<int64_t>(0));
       axes.erase(
           axes.begin() + (1 + bias_shape.size() - static_cast<unsigned>(rank)));
-      Tensor t;
-      t.elem_type() = TensorProto_DataType_INT64;
-      auto& data = t.int64s();
-      // Create axes input tensor
-      for (int64_t axis : axes) {
-        data.emplace_back(axis);
-      }
+      squeeze->is_(kaxes, std::move(axes));
       squeeze->addInput(orig_bias);
-      Value* axes_input = graph.addInitializerAndInput(t);
-      squeeze->addInput(axes_input);
       squeeze->insertBefore(orig_conv->node());
       orig_conv->node()->addInput(squeeze->output());
     } else {

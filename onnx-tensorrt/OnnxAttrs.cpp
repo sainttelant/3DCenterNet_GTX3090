@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #include "OnnxAttrs.hpp"
@@ -303,72 +321,14 @@ nvinfer1::MatrixOperation OnnxAttrs::get<nvinfer1::MatrixOperation>(const std::s
 template <>
 nvinfer1::ResizeMode OnnxAttrs::get<nvinfer1::ResizeMode>(const std::string& key) const
 {
-    const auto& mode = this->get<std::string>(key);
-    if (mode == "nearest")
+    std::string mode = this->get<std::string>(key);
+    if (mode == std::string("nearest"))
     {
         return nvinfer1::ResizeMode::kNEAREST;
     }
-    if (mode == "linear")
+    if (mode == std::string("linear"))
     {
         return nvinfer1::ResizeMode::kLINEAR;
     }
     throw std::runtime_error("Unknown ResizeMode: " + mode);
-}
-
-template <>
-nvinfer1::ResizeCoordinateTransformation OnnxAttrs::get<nvinfer1::ResizeCoordinateTransformation>(
-    const std::string& key) const
-{
-    const auto& transformation = this->get<std::string>(key);
-    if (transformation == "align_corners")
-    {
-        return nvinfer1::ResizeCoordinateTransformation::kALIGN_CORNERS;
-    }
-    if (transformation == "asymmetric")
-    {
-        return nvinfer1::ResizeCoordinateTransformation::kASYMMETRIC;
-    }
-    if (transformation == "half_pixel")
-    {
-        return nvinfer1::ResizeCoordinateTransformation::kHALF_PIXEL;
-    }
-    throw std::runtime_error("Unknown ResizeCoordinateTransformation: " + transformation);
-}
-
-template <>
-nvinfer1::ResizeSelector OnnxAttrs::get<nvinfer1::ResizeSelector>(const std::string& key) const
-{
-    const auto& selector = this->get<std::string>(key);
-    if (selector == "formula")
-    {
-        return nvinfer1::ResizeSelector::kFORMULA;
-    }
-    if (selector == "upper")
-    {
-        return nvinfer1::ResizeSelector::kUPPER;
-    }
-    throw std::runtime_error("Unknown ResizeSelector: " + selector);
-}
-
-template <>
-nvinfer1::ResizeRoundMode OnnxAttrs::get<nvinfer1::ResizeRoundMode>(const std::string& key) const
-{
-    const auto& roundMode = this->get<std::string>(key);
-    if (roundMode == "half_up")
-    {
-        return nvinfer1::ResizeRoundMode::kHALF_UP;
-    }
-    if (roundMode == "half_down")
-    {
-        return nvinfer1::ResizeRoundMode::kHALF_DOWN;
-    }
-    if (roundMode == "floor")
-    {
-        return nvinfer1::ResizeRoundMode::kFLOOR;
-    }
-    if (roundMode == "ceil")
-    {
-        return nvinfer1::ResizeRoundMode::kCEIL;
-    }
-    throw std::runtime_error("Unknown ResizeRoundMode: " + roundMode);
 }

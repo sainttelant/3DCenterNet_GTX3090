@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 # This short shell script will extract all the strong "text" symbols from the
 # shared library and create a new "stub" shared library with the same symbols.
 # The body of these functions will be empty and therefore have no dependencies.
@@ -46,3 +45,4 @@ nm -D "${IN_LIBFILE}" | \
     "${CC}" -x c -O0 -fPIC -shared -Wl,-soname=${SONAME} -Wl,--strip-all -o "${OUT_LIBFILE}" -
 
 exit $?
+

@@ -7,13 +7,15 @@ NVIDIA TensorRT is a platform for high-performance deep learning inference. It i
 
 ### Software Versions
 
+Software version configuration tested for the instructions that follow:
+
 |Software|Version|
 |--------|-------|
 |Python|3.6.9|
-|CUDA|11.4.2|
+|CUDA|11.0.171|
 |Apex|0.1|
-|TensorRT|8.2.0.6|
-|PyTorch|1.9.1|
+|TensorRT|7.1.3.4|
+|PyTorch|1.5.1|
 
 
 ## Quick Start Guide
@@ -22,59 +24,56 @@ NVIDIA TensorRT is a platform for high-performance deep learning inference. It i
 
     **Note:** After this point, all commands should be run from within the container.
 
-2. Verify TensorRT installation by printing the version:
+2. Install prerequisite software for TTS sample:
     ```bash
-    python3 -c "import tensorrt as trt; print(trt.__version__)"
-    ```
+    cd $TRT_SOURCE/demo/Tacotron2
 
-3. Install prerequisite software for TTS sample:
-    ```bash
-    cd $TRT_OSSPATH/demo/Tacotron2
+    export LD_LIBRARY_PATH=$TRT_SOURCE/build/out:/tensorrt/lib:$LD_LIBRARY_PATH
+    pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl
+
     bash ./scripts/install_prerequisites.sh
     ```
-4. Download pretrained checkpoints from [NGC](https://ngc.nvidia.com/catalog/models) into the `./checkpoints` directory:
+3. Download pretrained checkpoints from [NGC](https://ngc.nvidia.com/catalog/models) into the `./checkpoints` directory:
 
 - [Tacotron2 checkpoint](https://ngc.nvidia.com/models/nvidia:tacotron2pyt_fp16)
 - [WaveGlow checkpoint](https://ngc.nvidia.com/models/nvidia:waveglow256pyt_fp16)
 
     ```bash
-    bash ./scripts/download_checkpoints.sh
+    cd $TRT_SOURCE/demo/Tacotron2
+    ./scripts/download_checkpoints.sh
     ```
 
-5. Export the models to ONNX intermediate representation (ONNX IR).
+4. Export the models to ONNX intermediate representation (ONNX IR).
    Export Tacotron 2 to three ONNX parts: Encoder, Decoder, and Postnet:
 
 	```bash
 	mkdir -p output
-	python3 tensorrt/convert_tacotron22onnx.py --tacotron2 checkpoints/tacotron2_pyt_ckpt_amp_v19.09.0/nvidia_tacotron2pyt_fp16_20190427 -o output/ --fp16
+    python3 exports/export_tacotron2_onnx.py --tacotron2 ./checkpoints/tacotron2pyt_fp16_v3/tacotron2_1032590_6000_amp -o output/ --fp16
 	```
 
-    Convert WaveGlow to ONNX IR:
+    Export WaveGlow to ONNX IR:
 
 	```bash
-	python3 tensorrt/convert_waveglow2onnx.py --waveglow ./checkpoints/waveglow_ckpt_amp_256_v19.10.0/nvidia_waveglow256pyt_fp16 --config-file config.json --wn-channels 256 -o output/ --fp16
-    ```
+    python3 exports/export_waveglow_onnx.py --waveglow checkpoints/waveglow256pyt_fp16_v2/waveglow_1076430_14000_amp --wn-channels 256 -o output/ --fp16
+	```
 
-	The above commands store the generated ONNX files under the `./output/` directory:
-    `encoder.onnx`, `decoder_iter.onnx`, `postnet.onnx`, `waveglow.onnx`, and `decoder.onnx` (on TensorRT 8.0+ if `--no-loop` option is not specified).
+	After running the above commands, there should be four new ONNX files in `./output/` directory:
+    `encoder.onnx`, `decoder_iter.onnx`, `postnet.onnx`, and `waveglow.onnx`.
 
-6. Export the ONNX IRs to TensorRT engines with fp16 mode enabled:
+5. Export the ONNX IRs to TensorRT engines with fp16 mode enabled:
 
 	```bash
-	python3 tensorrt/convert_onnx2trt.py --encoder output/encoder.onnx --decoder output/decoder.onnx --postnet output/postnet.onnx --waveglow output/waveglow.onnx -o output/ --fp16
+	python3 trt/export_onnx2trt.py --encoder output/encoder.onnx --decoder output/decoder_iter.onnx --postnet output/postnet.onnx --waveglow output/waveglow.onnx -o output/ --fp16
 	```
 
 	After running the command, there should be four new engine files in `./output/` directory:
-    `encoder_fp16.engine`, `decoder_with_outer_loop_fp16.engine`, `postnet_fp16.engine`, and `waveglow_fp16.engine`. On TensorRT <8.0 or if `--no-loop` option is specified, `decoder_iter_fp16.engine` is generated instead.
+    `encoder_fp16.engine`, `decoder_iter_fp16.engine`, `postnet_fp16.engine`, and `waveglow_fp16.engine`.
 
-7. Run TTS inference pipeline with fp16:
+6. Run TTS inference pipeline with fp16:
 
-	
 	```bash
-	python3 tensorrt/inference_trt.py -i phrases/phrase.txt --encoder output/encoder_fp16.engine --decoder output/decoder_with_outer_loop_fp16.engine --postnet output/postnet_fp16.engine --waveglow output/waveglow_fp16.engine -o output/ --fp16
+	python3 trt/inference_trt.py -i phrases/phrase.txt --encoder output/encoder_fp16.engine --decoder output/decoder_iter_fp16.engine --postnet output/postnet_fp16.engine --waveglow output/waveglow_fp16.engine -o output/ --fp16
 	```
-
-    On TensorRT <8.0 use `decoder_iter_fp16.engine` for the decoder instead.
 
 ## Performance
 
@@ -92,22 +91,20 @@ The inference benchmark is performed on a single GPU by the `inference_benchmark
 bash scripts/inference_benchmark.sh
 ```
 
-*Note*: For benchmarking we use WaveGlow with 256 residual channels, and Tacotron2 decoder with outer loop for TensorRT inference.
+*Note*: For benchmarking we use WaveGlow with 256 residual channels.
 
 ### Results
-
-> Note: Results last updated for TensorRT 8.0.1.6 release.
 
 #### Inference performance: NVIDIA T4 (16GB)
 
 |Framework|Batch size|Input length|Precision|Avg latency (s)|Latency std (s)|Latency confidence interval 90% (s)|Latency confidence interval 95% (s)|Latency confidence interval 99% (s)|Throughput (samples/sec)|Speed-up PyT+TRT/TRT|Avg mels generated (81 mels=1 sec of speech)| Avg audio length (s)| Avg RTF|
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|PyT+TRT|1| 128| FP16| 0.1662 | 0.0036 | 0.1705 | 0.1717 | 0.1736 | 871,568 | 7.64 | 566 | 6.99 | 42.03 |
-|PyT    |1| 128| FP16| 1.27 | 0.07 | 1.36 | 1.38 | 1.44 |  121,184 | 1.00 | 601 | 7.42 | 5.84 |
+|PyT+TRT|1| 128| FP16| 0.93| 0.15| 1.09| 1.13| 1.49| 169,104| 1.78| 602| 7.35| 7.9|
+|PyT    |1| 128| FP16| 1.58| 0.07| 1.65| 1.70| 1.76|  97,991| 1.00| 605| 6.94| 4.4|
 
 #### Inference performance: NVIDIA V100 (16GB)
 
 |Framework|Batch size|Input length|Precision|Avg latency (s)|Latency std (s)|Latency confidence interval 90% (s)|Latency confidence interval 95% (s)|Latency confidence interval 99% (s)|Throughput (samples/sec)|Speed-up PyT+TRT/TRT|Avg mels generated (81 mels=1 sec of speech)| Avg audio length (s)| Avg RTF|
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|PyT+TRT|1| 128| FP16| 0.1641 | 0.0046 | 0.1694 | 0.1707 | 0.1731 | 900,884 | 6.52 | 577 | 7.13 | 43.44 |
-|PyT    |1| 128| FP16| 1.07 | 0.06 | 1.14 | 1.17 | 1.23 | 144,668 | 1.00 | 602 | 7.42 |  6.95 |
+|PyT+TRT|1| 128| FP16| 0.63| 0.02| 0.65| 0.66| 0.67| 242,466| 1.78| 599| 7.09| 10.9|
+|PyT    |1| 128| FP16| 1.13| 0.03| 1.17| 1.17| 1.21| 136,160| 1.00| 602| 7.10|  6.3|

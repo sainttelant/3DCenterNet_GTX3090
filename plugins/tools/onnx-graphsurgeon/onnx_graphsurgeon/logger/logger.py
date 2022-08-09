@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,8 +53,8 @@ class LoggerSuppress(object):
 
 
 class LogMode(enum.IntEnum):
-    EACH = 0  # Log the message each time
-    ONCE = 1  # Log the message only once. The same message will not be logged again.
+    EACH = 0 # Log the message each time
+    ONCE = 1 # Log the message only once. The same message will not be logged again.
 
 
 class Logger(object):
@@ -90,7 +90,7 @@ class Logger(object):
         """
         Logger.
 
-        Args:
+        Optional Args:
             severity (Logger.Severity): Messages below this severity are ignored.
             colors (bool): Whether to use colored output.
             letter (bool): Whether to prepend each logging message with a letter indicating it's severity. Defaults to True.
@@ -99,7 +99,7 @@ class Logger(object):
         """
         self._severity = severity
         self.logging_indent = 0
-        self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+        self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir,  os.pardir))
         self.once_logged = set()
         self.colors = colors
         self.letter = letter
@@ -107,15 +107,18 @@ class Logger(object):
         self.line_info = line_info
         self.logger_callbacks = []
 
+
     @property
     def severity(self):
         return self._severity
+
 
     @severity.setter
     def severity(self, value):
         self._severity = value
         for callback in self.logger_callbacks:
             callback(self._severity)
+
 
     def register_callback(self, callback):
         """
@@ -128,11 +131,13 @@ class Logger(object):
         callback(self._severity)
         self.logger_callbacks.append(callback)
 
+
     def indent(self, level=1):
         """
         Returns a context manager that indents all strings logged by the specified amount.
         """
         return LoggerIndent(self, level + self.logging_indent)
+
 
     def suppress(self, severity=CRITICAL):
         """
@@ -142,6 +147,8 @@ class Logger(object):
             severity (Logger.Severity): The severity to set the logger to. Defaults to Logger.CRITICAL, which will suppress all messages.
         """
         return LoggerSuppress(self, severity)
+
+
 
     # If once is True, the logger will only log this message a single time. Useful in loops.
     # message may be a callable which returns a message. This way, only if the message needs to be logged is it ever generated.
@@ -177,20 +184,19 @@ class Logger(object):
                 if self.colors:
                     try:
                         import colored
-
                         color = Logger.SEVERITY_COLOR_MAPPING[severity]
                         return colored.stylize(message, [colored.fg(color)])
                     except (ImportError, ModuleNotFoundError):
                         self.colors = False
-                        self.warning(
-                            "colored module is not installed, will not use colors when logging. To enable colors, please install the colored module: python3 -m pip install colored"
-                        )
+                        self.warning("colored module is not installed, will not use colors when logging. To enable colors, please install the colored module: python3 -m pip install colored")
                         self.colors = True
                 return message
+
 
             prefix = get_prefix()
             message = apply_indentation(message)
             return apply_color("{:}{:}".format(prefix, message))
+
 
         def should_log(message):
             should = severity >= self._severity
@@ -200,6 +206,7 @@ class Logger(object):
                 self.once_logged.add(message_hash)
             return should
 
+
         if not should_log(message):
             return
 
@@ -208,28 +215,35 @@ class Logger(object):
         message = str(message)
         print(process_message(message, stack_depth=stack_depth))
 
+
     def ultra_verbose(self, message, mode=LogMode.EACH):
         self.log(message, Logger.ULTRA_VERBOSE, mode=mode, stack_depth=3)
+
 
     def verbose(self, message, mode=LogMode.EACH):
         self.log(message, Logger.VERBOSE, mode=mode, stack_depth=3)
 
+
     def debug(self, message, mode=LogMode.EACH):
         self.log(message, Logger.DEBUG, mode=mode, stack_depth=3)
+
 
     def info(self, message, mode=LogMode.EACH):
         self.log(message, Logger.INFO, mode=mode, stack_depth=3)
 
+
     def warning(self, message, mode=LogMode.EACH):
         self.log(message, Logger.WARNING, mode=mode, stack_depth=3)
+
 
     def error(self, message, mode=LogMode.EACH):
         self.log(message, Logger.ERROR, mode=mode, stack_depth=3)
 
+
     # Like error, but immediately exits.
     def critical(self, message):
         self.log(message, Logger.CRITICAL, stack_depth=3)
-        raise OnnxGraphSurgeonException(message) from None  # Erase exception chain
+        raise OnnxGraphSurgeonException("Error encountered - see logging output for details") from None # Erase exception chain
 
 
 global G_LOGGER

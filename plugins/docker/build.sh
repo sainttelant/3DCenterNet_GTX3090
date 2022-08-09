@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,18 @@
 # limitations under the License.
 #
 
-arg_dockerfile=docker/ubuntu-20.04.Dockerfile
+arg_dockerfile=docker/ubuntu.Dockerfile
 arg_imagename=tensorrt-ubuntu
-arg_cudaversion=11.4.2
+arg_osversion=18.04
+arg_cudaversion=11.0
+arg_cudnnversion=8.0
+arg_trtversion=7.1.3
 arg_help=0
 
 while [[ "$#" -gt 0 ]]; do case $1 in
   --file) arg_dockerfile="$2"; shift;;
   --tag) arg_imagename="$2"; shift;;
+  --os) arg_osversion="$2"; shift;;
   --cuda) arg_cudaversion="$2"; shift;;
   -h|--help) arg_help=1;;
   *) echo "Unknown parameter passed: $1"; echo "For help type: $0 --help"; exit 1;
@@ -33,11 +37,17 @@ if [ "$arg_help" -eq "1" ]; then
     echo " --help or -h         : Print this help menu."
     echo " --file  <dockerfile> : Docker file to use for build."
     echo " --tag   <imagename>  : Image name for the generated container."
+    echo " --os    <version>    : OS version to use."
     echo " --cuda  <version>    : CUDA version to use."
     exit;
 fi
 
-docker_args="-f $arg_dockerfile --build-arg CUDA_VERSION=$arg_cudaversion --build-arg uid=$(id -u) --build-arg gid=$(id -g) --tag=$arg_imagename ."
+extra_args=""
+# Use RC builds for CUDA 11.0
+if [ "$arg_cudaversion" = "11.0" ]; then
+    extra_args="$extra_args --build-arg NVCR_SUFFIX=-rc"
+fi
+docker_args="-f $arg_dockerfile --build-arg OS_VERSION=$arg_osversion --build-arg CUDA_VERSION=$arg_cudaversion $extra_args --build-arg uid=$(id -u) --build-arg gid=$(id -g) --tag=$arg_imagename ."
 
 echo "Building container:"
 echo "> docker build $docker_args"

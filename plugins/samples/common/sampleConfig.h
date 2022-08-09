@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ private:
     std::string mReferenceFilename;
     std::string mOutputFilename;
     std::string mCalibrationFilename;
-    std::string mTimingCacheFilename;
     int64_t mLabel{-1};
     int64_t mMaxBatchSize{32};
     int64_t mMaxWorkspaceSize{1 * 1024 * 1024 * 1024};
@@ -58,7 +57,6 @@ private:
     uint64_t mTopK{0};
     float mFailurePercentage{-1.0f};
     float mTolerance{0.0f};
-    float mAbsTolerance{1e-5f};
 
 public:
     SampleConfig()
@@ -83,252 +81,229 @@ protected:
     }
 
 public:
-    void setModelDtype(const nvinfer1::DataType mdt) noexcept
+    void setModelDtype(const nvinfer1::DataType mdt)
     {
         mModelDtype = mdt;
     }
 
-    nvinfer1::DataType getModelDtype() const noexcept
+    nvinfer1::DataType getModelDtype() const
     {
         return mModelDtype;
     }
 
-    bool getTF32() const noexcept
+    bool getTF32() const
     {
         return mTF32;
     }
 
-    void setTF32(bool enabled) noexcept
+    void setTF32(bool enabled)
     {
         mTF32 = enabled;
     }
 
-    const char* getModelFileName() const noexcept
+    const char* getModelFileName() const
     {
         return mModelFilename.c_str();
     }
 
-    void setModelFileName(const char* onnxFilename) noexcept
+    void setModelFileName(const char* onnxFilename)
     {
-        mModelFilename = std::string(onnxFilename);
+        mModelFilename = string(onnxFilename);
     }
-    Verbosity getVerbosityLevel() const noexcept
+    Verbosity getVerbosityLevel() const
     {
         return mVerbosity;
     }
-    void addVerbosity() noexcept
+    void addVerbosity()
     {
         ++mVerbosity;
     }
-    void reduceVerbosity() noexcept
+    void reduceVerbosity()
     {
         --mVerbosity;
     }
-    virtual void setVerbosityLevel(Verbosity v) noexcept
+    virtual void setVerbosityLevel(Verbosity v)
     {
         mVerbosity = v;
     }
-    const char* getEngineFileName() const noexcept
+    const char* getEngineFileName() const
     {
         return mEngineFilename.c_str();
     }
-    void setEngineFileName(const char* engineFilename) noexcept
+    void setEngineFileName(const char* engineFilename)
     {
-        mEngineFilename = std::string(engineFilename);
+        mEngineFilename = string(engineFilename);
     }
-    const char* getTextFileName() const noexcept
+    const char* getTextFileName() const
     {
         return mTextFilename.c_str();
     }
-    void setTextFileName(const char* textFilename) noexcept
+    void setTextFileName(const char* textFilename)
     {
-        mTextFilename = std::string(textFilename);
+        mTextFilename = string(textFilename);
     }
-    const char* getFullTextFileName() const noexcept
+    const char* getFullTextFileName() const
     {
         return mFullTextFilename.c_str();
     }
-    void setFullTextFileName(const char* fullTextFilename) noexcept
+    void setFullTextFileName(const char* fullTextFilename)
     {
-        mFullTextFilename = std::string(fullTextFilename);
+        mFullTextFilename = string(fullTextFilename);
     }
-    void setLabel(int64_t label) noexcept
+    void setLabel(int64_t label)
     {
         mLabel = label;
     } //!<  set the Label
-
-    int64_t getLabel() const noexcept
+    int64_t getLabel() const
     {
         return mLabel;
     } //!<  get the Label
-
-    bool getPrintLayerInfo() const noexcept
+    bool getPrintLayerInfo() const
     {
         return mPrintLayercInfo;
     }
-
-    void setPrintLayerInfo(bool b) noexcept
+    void setPrintLayerInfo(bool b)
     {
         mPrintLayercInfo = b;
     } //!< get the boolean variable corresponding to the Layer Info, see getPrintLayerInfo()
 
-    void setMaxBatchSize(int64_t maxBatchSize) noexcept
+    void setMaxBatchSize(int64_t maxBatchSize)
     {
         mMaxBatchSize = maxBatchSize;
     } //!<  set the Max Batch Size
-    int64_t getMaxBatchSize() const noexcept
+    int64_t getMaxBatchSize() const
     {
         return mMaxBatchSize;
     } //!<  get the Max Batch Size
 
-    void setMaxWorkSpaceSize(int64_t maxWorkSpaceSize) noexcept
+    void setMaxWorkSpaceSize(int64_t maxWorkSpaceSize)
     {
         mMaxWorkspaceSize = maxWorkSpaceSize;
     } //!<  set the Max Work Space size
-    int64_t getMaxWorkSpaceSize() const noexcept
+    int64_t getMaxWorkSpaceSize() const
     {
         return mMaxWorkspaceSize;
     } //!<  get the Max Work Space size
 
-    void setCalibBatchSize(int64_t CalibBatchSize) noexcept
+    void setCalibBatchSize(int64_t CalibBatchSize)
     {
         mCalibBatchSize = CalibBatchSize;
     } //!<  set the calibration batch size
-    int64_t getCalibBatchSize() const noexcept
+    int64_t getCalibBatchSize() const
     {
         return mCalibBatchSize;
     } //!<  get calibration batch size
 
-    void setMaxNCalibBatch(int64_t MaxNCalibBatch) noexcept
+    void setMaxNCalibBatch(int64_t MaxNCalibBatch)
     {
         mMaxNCalibBatch = MaxNCalibBatch;
     } //!<  set Max Number of Calibration Batches
-    int64_t getMaxNCalibBatch() const noexcept
+    int64_t getMaxNCalibBatch() const
     {
         return mMaxNCalibBatch;
     } //!<  get the Max Number of Calibration Batches
 
-    void setFirstCalibBatch(int64_t FirstCalibBatch) noexcept
+    void setFirstCalibBatch(int64_t FirstCalibBatch)
     {
         mFirstCalibBatch = FirstCalibBatch;
     } //!<  set the first calibration batch
-    int64_t getFirstCalibBatch() const noexcept
+    int64_t getFirstCalibBatch() const
     {
         return mFirstCalibBatch;
     } //!<  get the first calibration batch
 
-    void setUseDLACore(int64_t UseDLACore) noexcept
+    void setUseDLACore(int64_t UseDLACore)
     {
         mUseDLACore = UseDLACore;
     } //!<  set the DLA core to use
-    int64_t getUseDLACore() const noexcept
+    int64_t getUseDLACore() const
     {
         return mUseDLACore;
     } //!<  get the DLA core to use
 
-    void setDebugBuilder() noexcept
+    void setDebugBuilder()
     {
         mDebugBuilder = true;
     } //!<  enable the Debug info, while building the engine.
-    bool getDebugBuilder() const noexcept
+    bool getDebugBuilder() const
     {
         return mDebugBuilder;
     } //!<  get the boolean variable, corresponding to the debug builder
 
-    const char* getImageFileName() const noexcept //!<  set Image file name (PPM or ASCII)
+    const char* getImageFileName() const //!<  set Image file name (PPM or ASCII)
     {
         return mImageFilename.c_str();
     }
-    void setImageFileName(const char* imageFilename) noexcept //!< get the Image file name
+    void setImageFileName(const char* imageFilename) //!< get the Image file name
     {
-        mImageFilename = std::string(imageFilename);
+        mImageFilename = string(imageFilename);
     }
-    const char* getReferenceFileName() const noexcept
+    const char* getReferenceFileName() const
     {
         return mReferenceFilename.c_str();
     }
-    void setReferenceFileName(const char* referenceFilename) noexcept //!<  set reference file name
+    void setReferenceFileName(const char* referenceFilename) //!<  set reference file name
     {
-        mReferenceFilename = std::string(referenceFilename);
+        mReferenceFilename = string(referenceFilename);
     }
 
-    void setInputDataFormat(InputDataFormat idt) noexcept
+    void setInputDataFormat(InputDataFormat idt)
     {
         mInputDataFormat = idt;
     } //!<  specifies expected data format of the image file (PPM or ASCII)
-    InputDataFormat getInputDataFormat() const noexcept
+    InputDataFormat getInputDataFormat() const
     {
         return mInputDataFormat;
     } //!<  returns the expected data format of the image file.
 
-    const char* getOutputFileName() const noexcept //!<  specifies the file to save the results
+    const char* getOutputFileName() const //!<  specifies the file to save the results
     {
         return mOutputFilename.c_str();
     }
-    void setOutputFileName(const char* outputFilename) noexcept //!<  get the output file name
+    void setOutputFileName(const char* outputFilename) //!<  get the output file name
     {
-        mOutputFilename = std::string(outputFilename);
+        mOutputFilename = string(outputFilename);
     }
 
-    const char* getCalibrationFileName() const noexcept
+    const char* getCalibrationFileName() const
     {
         return mCalibrationFilename.c_str();
     } //!<  specifies the file containing the list of image files for int8 calibration
-    void setCalibrationFileName(const char* calibrationFilename) noexcept //!<  get the int 8 calibration list file name
+    void setCalibrationFileName(const char* calibrationFilename) //!<  get the int 8 calibration list file name
     {
-        mCalibrationFilename = std::string(calibrationFilename);
+        mCalibrationFilename = string(calibrationFilename);
     }
 
-    uint64_t getTopK() const noexcept
+    uint64_t getTopK() const
     {
         return mTopK;
     }
-    void setTopK(uint64_t topK) noexcept
+    void setTopK(uint64_t topK)
     {
         mTopK = topK;
     } //!<  If this options is specified, return the K top probabilities.
 
-    float getFailurePercentage() const noexcept
+    float getFailurePercentage() const
     {
         return mFailurePercentage;
     }
 
-    void setFailurePercentage(float f) noexcept
+    void setFailurePercentage(float f)
     {
         mFailurePercentage = f;
     }
 
-    float getAbsoluteTolerance() const noexcept
-    {
-        return mAbsTolerance;
-    }
-
-    void setAbsoluteTolerance(float a) noexcept
-    {
-        mAbsTolerance = a;
-    }
-
-    float getTolerance() const noexcept
+    float getTolerance() const
     {
         return mTolerance;
     }
 
-    void setTolerance(float t) noexcept
+    void setTolerance(float t)
     {
         mTolerance = t;
     }
 
-    const char* getTimingCacheFilename() const noexcept
-    {
-        return mTimingCacheFilename.c_str();
-    }
-    
-    void setTimingCacheFileName(const char* timingCacheFilename) noexcept
-    {
-        mTimingCacheFilename = std::string(timingCacheFilename);
-    }
-
-    bool isDebug() const noexcept
+    bool isDebug() const
     {
 #if ONNX_DEBUG
         return (std::getenv("ONNX_DEBUG") ? true : false);
@@ -337,7 +312,7 @@ public:
 #endif
     }
 
-    void destroy() noexcept
+    void destroy()
     {
         delete this;
     }

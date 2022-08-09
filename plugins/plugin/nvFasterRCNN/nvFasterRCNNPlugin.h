@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,88 +26,77 @@ namespace nvinfer1
 namespace plugin
 {
 
-class RPROIPlugin : public IPluginV2IOExt
+class RPROIPlugin : public IPluginV2Ext
 {
 public:
     RPROIPlugin(RPROIParams params, const float* anchorsRatios, const float* anchorsScales);
 
-    RPROIPlugin(RPROIParams params, const float* anchorsRatios, const float* anchorsScales, int32_t A, int32_t C, int32_t H, 
-        int32_t W, const float* anchorsDev, size_t deviceSmemSize, DataType inFeatureType, DataType outFeatureType, 
-        DLayout_t inFeatureLayout);
+    RPROIPlugin(RPROIParams params, const float* anchorsRatios, const float* anchorsScales, int A, int C, int H, int W,
+        const float* anchorsDev);
 
     RPROIPlugin(const void* data, size_t length);
 
     ~RPROIPlugin() override;
 
-    int getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-    int initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override;
+    void terminate() override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const noexcept override;
+    size_t getWorkspaceSize(int maxBatchSize) const override;
 
-    int enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
-        cudaStream_t stream) noexcept override;
+    int enqueue(
+        int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
-    bool supportsFormatCombination(int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) 
-        const noexcept override;
+    bool supportsFormat(DataType type, PluginFormat format) const override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    IPluginV2Ext* clone() const noexcept override;
+    IPluginV2Ext* clone() const override;
 
-    void setPluginNamespace(const char* pluginNamespace) noexcept override;
+    void setPluginNamespace(const char* pluginNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept override;
+    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override;
+    bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
     void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept override;
+        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
-    void configurePlugin(const PluginTensorDesc* in, int32_t nbInput, const PluginTensorDesc* out, int32_t nbOutput) 
-        noexcept override;
+    void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
+        const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
 
-    void detachFromContext() noexcept override;
+    void detachFromContext() override;
 
 private:
-    float* copyToHost(const void* srcHostData, int count) noexcept;
+    float* copyToHost(const void* srcHostData, int count);
 
-    int copyFromHost(char* dstHostBuffer, const void* source, int count) const noexcept;
-
-    size_t getSmemSize() const noexcept;
-
-    DLayout_t convertTensorFormat(const TensorFormat& srcFormat) const noexcept;
+    int copyFromHost(char* dstHostBuffer, const void* source, int count) const;
 
     // These won't be serialized
     float* anchorsDev{nullptr};
     std::string mPluginNamespace;
-    const int32_t PluginNbInputs{4};
-    const int32_t PluginNbOutputs{2};
-    // this plugin may load the whole feature map in smem. we can set different smem size according to the device.
-    size_t deviceSmemSize{0};
 
     // These need to be serialized
     RPROIParams params;
-    int32_t A, C, H, W;
+    int A, C, H, W;
     float *anchorsRatiosHost{nullptr}, *anchorsScalesHost{nullptr};
-    DataType inFeatureType, outFeatureType;
-    DLayout_t inFeatureLayout;
 };
 
 class RPROIPluginCreator : public BaseCreator
@@ -117,15 +106,15 @@ public:
 
     ~RPROIPluginCreator() override;
 
-    const char* getPluginName() const noexcept override;
+    const char* getPluginName() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    const PluginFieldCollection* getFieldNames() noexcept override;
+    const PluginFieldCollection* getFieldNames() override;
 
-    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
+    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
 private:
     static PluginFieldCollection mFC;

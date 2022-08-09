@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ public:
         mMap[name] = tensor;
     }
 
-    nvinfer1::ITensor* find(const char* name) const noexcept override
+    nvinfer1::ITensor* find(const char* name) const override
     {
         auto p = mMap.find(name);
         if (p == mMap.end())

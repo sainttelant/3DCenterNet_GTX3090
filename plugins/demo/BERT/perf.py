@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,21 +78,11 @@ def main():
 
         bench_times = {}
 
-        stream = cuda.Stream()
-        for batch_size in sorted(args.batch_size):
-            # Select engine profile
-            selected_profile = -1
-            for idx in range(engine.num_optimization_profiles):
-                profile_shape = engine.get_profile_shape(profile_index = idx, binding = idx * num_binding_per_profile)
-                if profile_shape[0][0] <= batch_size and profile_shape[2][0] >= batch_size and profile_shape[0][1] <= args.sequence_length and profile_shape[2][1] >= args.sequence_length:
-                    selected_profile = idx
-                    break
-            if selected_profile == -1:
-                raise RuntimeError("None of the dynamic shape profiles meets the requirement batch = {} and sequence = {}.".format(batch_size, args.sequence_length))
-            context.set_optimization_profile_async(selected_profile, stream.handle)
+        for idx, batch_size in enumerate(sorted(args.batch_size)):
+            context.active_optimization_profile = idx
 
             # Each profile has unique bindings
-            binding_idx_offset = selected_profile * num_binding_per_profile
+            binding_idx_offset = idx * num_binding_per_profile
             bindings = [0] * binding_idx_offset + [buf.binding() for buf in buffers]
 
             shapes = {
@@ -109,6 +99,7 @@ def main():
             total_time = 0
             start = cuda.Event()
             end = cuda.Event()
+            stream = cuda.Stream()
 
             # Warmup
             for _ in range(args.warm_up_runs):

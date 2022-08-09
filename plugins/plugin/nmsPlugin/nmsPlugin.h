@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,144 +38,82 @@ public:
 
     ~DetectionOutput() override = default;
 
-    int getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-    int initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override;
+    void terminate() override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const noexcept override;
+    size_t getWorkspaceSize(int maxBatchSize) const override;
 
-    int enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
-        cudaStream_t stream) noexcept override;
+    int enqueue(
+        int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
+    bool supportsFormat(DataType type, PluginFormat format) const override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    IPluginV2Ext* clone() const noexcept override;
+    IPluginV2Ext* clone() const override;
 
-    void setPluginNamespace(const char* pluginNamespace) noexcept override;
+    void setPluginNamespace(const char* pluginNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept override;
+    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override;
+    bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
     void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept override;
+        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override;
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
 
-    void detachFromContext() noexcept override;
-
-    void setScoreBits(int32_t scoreBits) noexcept;
+    void detachFromContext() override;
 
 private:
     DetectionOutputParameters param;
     int C1, C2, numPriors;
-    DataType mType;
-    int32_t mScoreBits;
     std::string mPluginNamespace;
 };
 
-class DetectionOutputDynamic : public IPluginV2DynamicExt
-{
-public:
-    DetectionOutputDynamic(DetectionOutputParameters param);
-    DetectionOutputDynamic(DetectionOutputParameters param, int C1, int C2, int numPriors);
-    DetectionOutputDynamic(const void* data, size_t length);
-    ~DetectionOutputDynamic() override = default;
-
-    // IPluginV2 methods
-    const char* getPluginType() const noexcept override;
-    const char* getPluginVersion() const noexcept override;
-    int getNbOutputs() const noexcept override;
-    int initialize() noexcept override;
-    void terminate() noexcept override;
-    size_t getSerializationSize() const noexcept override;
-    void serialize(void* buffer) const noexcept override;
-    void destroy() noexcept override;
-    void setPluginNamespace(const char* libNamespace) noexcept override;
-    const char* getPluginNamespace() const noexcept override;
-    void setScoreBits(int32_t scoreBits) noexcept;
-
-    // IPluginV2Ext methods
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputType, int nbInputs) const noexcept override;
-
-    // IPluginV2DynamicExt methods
-    IPluginV2DynamicExt* clone() const noexcept override;
-    DimsExprs getOutputDimensions(
-        int outputIndex, const DimsExprs* inputs, int nbInputs, IExprBuilder& exprBuilder) noexcept override;
-    bool supportsFormatCombination(
-        int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept override;
-    void configurePlugin(const DynamicPluginTensorDesc* in, int nbInputs, const DynamicPluginTensorDesc* out,
-        int nbOutputs) noexcept override;
-    size_t getWorkspaceSize(const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs,
-        int nbOutputs) const noexcept override;
-    int32_t enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc, const void* const* inputs,
-        void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
-
-private:
-    DetectionOutputParameters param;
-    int C1, C2, numPriors;
-    DataType mType;
-    int32_t mScoreBits;
-    std::string mPluginNamespace;
-};
-
-class NMSBasePluginCreator : public BaseCreator
-{
-public:
-    NMSBasePluginCreator();
-    ~NMSBasePluginCreator() override = default;
-    const char* getPluginName() const noexcept override;
-    const char* getPluginVersion() const noexcept override;
-    const PluginFieldCollection* getFieldNames() noexcept override;
-
-protected:
-    static PluginFieldCollection mFC;
-    // Parameters for DetectionOutput
-    DetectionOutputParameters params;
-    static std::vector<PluginField> mPluginAttributes;
-    std::string mPluginName;
-    int32_t mScoreBits;
-};
-
-class NMSPluginCreator : public NMSBasePluginCreator
+class NMSPluginCreator : public BaseCreator
 {
 public:
     NMSPluginCreator();
+
     ~NMSPluginCreator() override = default;
-    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
-    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
-};
 
-class NMSDynamicPluginCreator : public NMSBasePluginCreator
-{
-public:
-    NMSDynamicPluginCreator();
-    ~NMSDynamicPluginCreator() override = default;
-    IPluginV2DynamicExt* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
-    IPluginV2DynamicExt* deserializePlugin(
-        const char* name, const void* serialData, size_t serialLength) noexcept override;
-};
+    const char* getPluginName() const override;
 
+    const char* getPluginVersion() const override;
+
+    const PluginFieldCollection* getFieldNames() override;
+
+    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) override;
+
+    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
+
+private:
+    static PluginFieldCollection mFC;
+
+    // Parameters for DetectionOutput
+    DetectionOutputParameters params;
+    static std::vector<PluginField> mPluginAttributes;
+};
 } // namespace plugin
 } // namespace nvinfer1
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,23 +48,16 @@ RPROIPlugin::RPROIPlugin(RPROIParams params, const float* anchorsRatios, const f
     pluginStatus_t status = generateAnchors(0, params.anchorsRatioCount, anchorsRatiosHost, params.anchorsScaleCount,
         anchorsScalesHost, params.featureStride, anchorsDev);
     ASSERT(status == STATUS_SUCCESS);
-
-    deviceSmemSize = getSmemSize();
 }
 
 // Constructor for cloning one plugin instance to another
-RPROIPlugin::RPROIPlugin(RPROIParams params, const float* anchorsRatios, const float* anchorsScales, int32_t A, int32_t C,
-    int32_t H, int32_t W, const float* _anchorsDev, size_t deviceSmemSize, DataType inFeatureType, DataType outFeatureType,
-    DLayout_t inFeatureLayout)
-    : deviceSmemSize(deviceSmemSize)
-    , params(params)
+RPROIPlugin::RPROIPlugin(RPROIParams params, const float* anchorsRatios, const float* anchorsScales, int A, int C,
+    int H, int W, const float* _anchorsDev)
+    : params(params)
     , A(A)
     , C(C)
     , H(H)
     , W(W)
-    , inFeatureType(inFeatureType)
-    , outFeatureType(outFeatureType)
-    , inFeatureLayout(inFeatureLayout)
 {
     ASSERT(params.anchorsRatioCount > 0 && params.anchorsScaleCount > 0);
     anchorsRatiosHost = copyToHost(anchorsRatios, params.anchorsRatioCount);
@@ -85,13 +78,10 @@ RPROIPlugin::RPROIPlugin(const void* data, size_t length)
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     params = *reinterpret_cast<const RPROIParams*>(d);
     d += sizeof(RPROIParams);
-    A = read<int32_t>(d);
-    C = read<int32_t>(d);
-    H = read<int32_t>(d);
-    W = read<int32_t>(d);
-    inFeatureType = read<DataType>(d);
-    outFeatureType = read<DataType>(d);
-    inFeatureLayout = read<DLayout_t>(d);
+    A = read<int>(d);
+    C = read<int>(d);
+    H = read<int>(d);
+    W = read<int>(d);
     anchorsRatiosHost = copyToHost(d, params.anchorsRatioCount);
     d += params.anchorsRatioCount * sizeof(float);
     anchorsScalesHost = copyToHost(d, params.anchorsScaleCount);
@@ -102,8 +92,6 @@ RPROIPlugin::RPROIPlugin(const void* data, size_t length)
     pluginStatus_t status = generateAnchors(0, params.anchorsRatioCount, anchorsRatiosHost, params.anchorsScaleCount,
         anchorsScalesHost, params.featureStride, anchorsDev);
     ASSERT(status == STATUS_SUCCESS);
-
-    deviceSmemSize = getSmemSize();
 }
 
 RPROIPlugin::~RPROIPlugin()
@@ -125,48 +113,38 @@ RPROIPlugin::~RPROIPlugin()
     }
 }
 
-int RPROIPlugin::initialize() noexcept
+int RPROIPlugin::initialize()
 {
     return STATUS_SUCCESS;
 }
 
-size_t RPROIPlugin::getSmemSize() const noexcept
-{
-    int32_t devId{-1};
-    CHECK(cudaGetDevice(&devId));
-    cudaDeviceProp prop{};
-    CHECK(cudaGetDeviceProperties(&prop, devId));
-    return prop.sharedMemPerBlockOptin;
-}
-
-int RPROIPlugin::getNbOutputs() const noexcept
+int RPROIPlugin::getNbOutputs() const
 {
     return 2;
 }
 
-Dims RPROIPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims RPROIPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
     ASSERT(index >= 0 && index < 2);
     ASSERT(nbInputDims == 4);
     ASSERT(inputs[0].nbDims == 3 && inputs[1].nbDims == 3 && inputs[2].nbDims == 3 && inputs[3].nbDims == 3);
     if (index == 0) // rois
     {
-        return Dims3(1, params.nmsMaxOut, 4);
+        return DimsCHW(1, params.nmsMaxOut, 4);
     }
     // Feature map of each ROI after ROI Pooling
     else // pool5
     {
-        return Dims4(params.nmsMaxOut, inputs[2].d[0], params.poolingH, params.poolingW);
+        return DimsNCHW(params.nmsMaxOut, inputs[2].d[0], params.poolingH, params.poolingW);
     }
 }
 
-size_t RPROIPlugin::getWorkspaceSize(int maxBatchSize) const noexcept
+size_t RPROIPlugin::getWorkspaceSize(int maxBatchSize) const
 {
     return RPROIInferenceFusedWorkspaceSize(maxBatchSize, A, H, W, params.nmsMaxOut);
 }
 
-int RPROIPlugin::enqueue(
-    int batchSize, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+int RPROIPlugin::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
     // Bounding box (region proposal) objectness scores.
     const void* const scores = inputs[0];
@@ -185,47 +163,40 @@ int RPROIPlugin::enqueue(
     pluginStatus_t status = RPROIInferenceFused(stream, batchSize, A, C, H, W, params.poolingH, params.poolingW,
         params.featureStride, params.preNmsTop, params.nmsMaxOut, params.iouThreshold, params.minBoxSize,
         params.spatialScale, (const float*) iinfo, this->anchorsDev, nvinfer1::DataType::kFLOAT, NCHW, scores,
-        nvinfer1::DataType::kFLOAT, NCHW, deltas, inFeatureType, inFeatureLayout, fmap, workspace,
-        nvinfer1::DataType::kFLOAT, rois, outFeatureType, NCHW, pfmap, deviceSmemSize);    
-    return status;
+        nvinfer1::DataType::kFLOAT, NCHW, deltas, nvinfer1::DataType::kFLOAT, NCHW, fmap, workspace,
+        nvinfer1::DataType::kFLOAT, rois, nvinfer1::DataType::kFLOAT, NCHW, pfmap);
+    ASSERT(status == STATUS_SUCCESS);
+    return 0;
 }
 
-size_t RPROIPlugin::getSerializationSize() const noexcept
+size_t RPROIPlugin::getSerializationSize() const
 {
     size_t paramSize = sizeof(RPROIParams);
-    size_t intSize = sizeof(int32_t) * 4;
+    size_t intSize = sizeof(int) * 4;
     size_t ratiosSize = sizeof(float) * params.anchorsRatioCount;
     size_t scalesSize = sizeof(float) * params.anchorsScaleCount;
-    size_t typeSize = sizeof(DataType) * 2;
-    size_t layoutSize = sizeof(DLayout_t);
-    return paramSize + intSize + ratiosSize + scalesSize + typeSize + layoutSize;
+    return paramSize + intSize + ratiosSize + scalesSize;
 }
 
-void RPROIPlugin::serialize(void* buffer) const noexcept
+void RPROIPlugin::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     *reinterpret_cast<RPROIParams*>(d) = params;
     d += sizeof(RPROIParams);
-    *reinterpret_cast<int32_t*>(d) = A;
-    d += sizeof(int32_t);
-    *reinterpret_cast<int32_t*>(d) = C;
-    d += sizeof(int32_t);
-    *reinterpret_cast<int32_t*>(d) = H;
-    d += sizeof(int32_t);
-    *reinterpret_cast<int32_t*>(d) = W;
-    d += sizeof(int32_t);
-    *reinterpret_cast<DataType*>(d) = inFeatureType;
-    d += sizeof(DataType);
-    *reinterpret_cast<DataType*>(d) = outFeatureType;
-    d += sizeof(DataType);
-    *reinterpret_cast<DLayout_t*>(d) = inFeatureLayout;
-    d += sizeof(DLayout_t);
+    *reinterpret_cast<int*>(d) = A;
+    d += sizeof(int);
+    *reinterpret_cast<int*>(d) = C;
+    d += sizeof(int);
+    *reinterpret_cast<int*>(d) = H;
+    d += sizeof(int);
+    *reinterpret_cast<int*>(d) = W;
+    d += sizeof(int);
     d += copyFromHost(d, anchorsRatiosHost, params.anchorsRatioCount);
     d += copyFromHost(d, anchorsScalesHost, params.anchorsScaleCount);
     ASSERT(d == a + getSerializationSize());
 }
 
-float* RPROIPlugin::copyToHost(const void* srcHostData, int count) noexcept
+float* RPROIPlugin::copyToHost(const void* srcHostData, int count)
 {
     float* dstHostPtr = nullptr;
     CHECK(cudaMallocHost(&dstHostPtr, count * sizeof(float)));
@@ -233,144 +204,112 @@ float* RPROIPlugin::copyToHost(const void* srcHostData, int count) noexcept
     return dstHostPtr;
 }
 
-int RPROIPlugin::copyFromHost(char* dstHostBuffer, const void* source, int count) const noexcept
+int RPROIPlugin::copyFromHost(char* dstHostBuffer, const void* source, int count) const
 {
     cudaMemcpy(dstHostBuffer, source, count * sizeof(float), cudaMemcpyHostToHost);
     return count * sizeof(float);
 }
 
-bool RPROIPlugin::supportsFormatCombination(int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) const noexcept
+bool RPROIPlugin::supportsFormat(DataType type, PluginFormat format) const
 {
-    ASSERT(nbInputs == PluginNbInputs && nbOutputs == PluginNbOutputs && pos < nbInputs + nbOutputs);
-    bool isValidCombination = false;
-
-    // input:  bbox confindence, bbox offset, image info and output: rois
-    if (pos == 0 || pos == 1 || pos == 3 || pos == 4)
-    {
-        isValidCombination |= (inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT);
-    }
-    // input:  feature map 
-    else if (pos == 2)
-    {
-        isValidCombination |= (inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kINT8);
-        isValidCombination |= (inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT);
-        isValidCombination |= (inOut[pos].format == TensorFormat::kCHW4 && inOut[pos].type == DataType::kINT8);
-        isValidCombination |= (inOut[pos].format == TensorFormat::kCHW32 && inOut[pos].type == DataType::kINT8);
-    }
-    // output: pooled feature map (data type should be the same with input feature map)
-    else if (pos == 5)
-    {
-        isValidCombination |= (inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kINT8);
-        isValidCombination |= (inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT);
-        isValidCombination &= inOut[pos].type == inOut[2].type;
-    }
-    return isValidCombination;
+    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
 }
 
-const char* RPROIPlugin::getPluginType() const noexcept
+const char* RPROIPlugin::getPluginType() const
 {
     return RPROI_PLUGIN_NAME;
 }
 
-const char* RPROIPlugin::getPluginVersion() const noexcept
+const char* RPROIPlugin::getPluginVersion() const
 {
     return RPROI_PLUGIN_VERSION;
 }
 
-void RPROIPlugin::terminate() noexcept {}
+void RPROIPlugin::terminate() {}
 
-void RPROIPlugin::destroy() noexcept
+void RPROIPlugin::destroy()
 {
     delete this;
 }
 
-IPluginV2Ext* RPROIPlugin::clone() const noexcept
+IPluginV2Ext* RPROIPlugin::clone() const
 {
-    IPluginV2Ext* plugin = new RPROIPlugin(params, anchorsRatiosHost, anchorsScalesHost, A, C, H, W, anchorsDev, 
-        deviceSmemSize, inFeatureType, outFeatureType, inFeatureLayout);
+    IPluginV2Ext* plugin = new RPROIPlugin(params, anchorsRatiosHost, anchorsScalesHost, A, C, H, W, anchorsDev);
     plugin->setPluginNamespace(mPluginNamespace.c_str());
     return plugin;
 }
 
 // Set plugin namespace
-void RPROIPlugin::setPluginNamespace(const char* pluginNamespace) noexcept
+void RPROIPlugin::setPluginNamespace(const char* pluginNamespace)
 {
     mPluginNamespace = pluginNamespace;
 }
 
-const char* RPROIPlugin::getPluginNamespace() const noexcept
+const char* RPROIPlugin::getPluginNamespace() const
 {
     return mPluginNamespace.c_str();
 }
 
 // Return the DataType of the plugin output at the requested index.
-DataType RPROIPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+DataType RPROIPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Two outputs
     ASSERT(index == 0 || index == 1);
     return DataType::kFLOAT;
 }
-
 // Return true if output tensor is broadcast across a batch.
-bool RPROIPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+bool RPROIPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool RPROIPlugin::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool RPROIPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
 
-DLayout_t RPROIPlugin::convertTensorFormat(const TensorFormat& srcFormat) const noexcept
+// Configure the layer with input and output data types.
+// inutDims: input Dimensions for the plugin layer
+// nInputs : Number of inputs to the plugin layer
+// outputDims: output Dimensions from the plugin layer
+// nOutputs: number of outputs from the plugin layer
+// type: DataType configuration for the plugin layer
+// format: format NCHW, NHWC etc
+// maxbatchSize: maximum batch size for the plugin layer
+void RPROIPlugin::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
+    const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
-    ASSERT(srcFormat == TensorFormat::kLINEAR || srcFormat == TensorFormat::kCHW4
-        || srcFormat == TensorFormat::kCHW32);
-    switch(srcFormat)
-    {
-        case nvinfer1::TensorFormat::kLINEAR: return DLayout_t::NCHW;
-        case nvinfer1::TensorFormat::kCHW4: return DLayout_t::NC4HW;
-        case nvinfer1::TensorFormat::kCHW32: return DLayout_t::NC32HW;
-        default: return DLayout_t::NCHW;
-    }
-}
-
-void RPROIPlugin::configurePlugin(
-        const PluginTensorDesc* in, int32_t nbInput, const PluginTensorDesc* out, int32_t nbOutput) noexcept
-{
-    ASSERT(nbInput == PluginNbInputs);
-    ASSERT(nbOutput == PluginNbOutputs);
+    ASSERT(*inputTypes == DataType::kFLOAT && floatFormat == PluginFormat::kNCHW);
 
     A = params.anchorsRatioCount * params.anchorsScaleCount;
-    C = in[2].dims.d[0];
-    H = in[2].dims.d[1];
-    W = in[2].dims.d[2];
-    inFeatureType = in[2].type;
-    outFeatureType = out[1].type;
-    inFeatureLayout = convertTensorFormat(in[2].format);
+    C = inputDims[2].d[0];
+    H = inputDims[2].d[1];
+    W = inputDims[2].d[2];
 
-    ASSERT(in[0].dims.d[0] == (2 * A) && in[1].dims.d[0] == (4 * A));
-    ASSERT(in[0].dims.d[1] == in[1].dims.d[1] && in[0].dims.d[1] == in[2].dims.d[1]);
-    ASSERT(in[0].dims.d[2] == in[1].dims.d[2] && in[0].dims.d[2] == in[2].dims.d[2]);
-    ASSERT(out[0].dims.nbDims == 3    // rois
-        && out[1].dims.nbDims == 4);  // pooled feature map
-    ASSERT(out[0].dims.d[0] == 1 && out[0].dims.d[1] == params.nmsMaxOut && out[0].dims.d[2] == 4);
-    ASSERT(out[1].dims.d[0] == params.nmsMaxOut && out[1].dims.d[1] == C && out[1].dims.d[2] == params.poolingH
-        && out[1].dims.d[3] == params.poolingW);
+    ASSERT(nbInputs == 4);
+    ASSERT(inputDims[0].d[0] == (2 * A) && inputDims[1].d[0] == (4 * A));
+    ASSERT(inputDims[0].d[1] == inputDims[1].d[1] && inputDims[0].d[1] == inputDims[2].d[1]);
+    ASSERT(inputDims[0].d[2] == inputDims[1].d[2] && inputDims[0].d[2] == inputDims[2].d[2]);
+    ASSERT(nbOutputs == 2 && outputDims[0].nbDims == 3 // rois
+        && outputDims[1].nbDims == 4);                 // pooled feature map
+    ASSERT(outputDims[0].d[0] == 1 && outputDims[0].d[1] == params.nmsMaxOut && outputDims[0].d[2] == 4);
+    ASSERT(outputDims[1].d[0] == params.nmsMaxOut && outputDims[1].d[1] == C && outputDims[1].d[2] == params.poolingH
+        && outputDims[1].d[3] == params.poolingW);
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void RPROIPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+void RPROIPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void RPROIPlugin::detachFromContext() noexcept {}
+void RPROIPlugin::detachFromContext() {}
 
 RPROIPluginCreator::RPROIPluginCreator()
 {
-    mPluginAttributes.clear();
+
     mPluginAttributes.emplace_back(PluginField("poolingH", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("poolingW", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("featureStride", nullptr, PluginFieldType::kINT32, 1));
@@ -396,22 +335,22 @@ RPROIPluginCreator::~RPROIPluginCreator()
     // Free allocated memory (if any) here
 }
 
-const char* RPROIPluginCreator::getPluginName() const noexcept
+const char* RPROIPluginCreator::getPluginName() const
 {
     return RPROI_PLUGIN_NAME;
 }
 
-const char* RPROIPluginCreator::getPluginVersion() const noexcept
+const char* RPROIPluginCreator::getPluginVersion() const
 {
     return RPROI_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* RPROIPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* RPROIPluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2Ext* RPROIPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* RPROIPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     const PluginField* fields = fc->fields;
     int nbFields = fc->nbFields;
@@ -500,7 +439,7 @@ IPluginV2Ext* RPROIPluginCreator::createPlugin(const char* name, const PluginFie
     return plugin;
 }
 
-IPluginV2Ext* RPROIPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2Ext* RPROIPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     // This object will be deleted when the network is destroyed, which will
     // call RPROIPlugin::terminate()

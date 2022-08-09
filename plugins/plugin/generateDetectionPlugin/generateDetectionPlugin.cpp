@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "generateDetectionPlugin.h"
 #include "plugin.h"
-#include <algorithm>
 #include <cuda_runtime_api.h>
+#include <algorithm>
 
 using namespace nvinfer1;
 using namespace plugin;
@@ -35,7 +34,7 @@ const char* GENERATEDETECTION_PLUGIN_NAME{"GenerateDetection_TRT"};
 PluginFieldCollection GenerateDetectionPluginCreator::mFC{};
 std::vector<PluginField> GenerateDetectionPluginCreator::mPluginAttributes;
 
-GenerateDetectionPluginCreator::GenerateDetectionPluginCreator() noexcept
+GenerateDetectionPluginCreator::GenerateDetectionPluginCreator()
 {
 
     mPluginAttributes.emplace_back(PluginField("num_classes", nullptr, PluginFieldType::kINT32, 1));
@@ -48,22 +47,22 @@ GenerateDetectionPluginCreator::GenerateDetectionPluginCreator() noexcept
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* GenerateDetectionPluginCreator::getPluginName() const noexcept
+const char* GenerateDetectionPluginCreator::getPluginName() const
 {
     return GENERATEDETECTION_PLUGIN_NAME;
 };
 
-const char* GenerateDetectionPluginCreator::getPluginVersion() const noexcept
+const char* GenerateDetectionPluginCreator::getPluginVersion() const
 {
     return GENERATEDETECTION_PLUGIN_VERSION;
 };
 
-const PluginFieldCollection* GenerateDetectionPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* GenerateDetectionPluginCreator::getFieldNames()
 {
     return &mFC;
 };
 
-IPluginV2Ext* GenerateDetectionPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* GenerateDetectionPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     auto image_size = TLTMaskRCNNConfig::IMAGE_SHAPE;
     const PluginField* fields = fc->fields;
@@ -100,13 +99,12 @@ IPluginV2Ext* GenerateDetectionPluginCreator::createPlugin(const char* name, con
     return new GenerateDetection(mNbClasses, mKeepTopK, mScoreThreshold, mIOUThreshold, image_size);
 };
 
-IPluginV2Ext* GenerateDetectionPluginCreator::deserializePlugin(const char* name, const void* data, size_t length) noexcept
+IPluginV2Ext* GenerateDetectionPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
 {
     return new GenerateDetection(data, length);
 };
 
-GenerateDetection::GenerateDetection(
-    int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size) noexcept
+GenerateDetection::GenerateDetection(int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size)
     : mNbClasses(num_classes)
     , mKeepTopK(keep_topk)
     , mScoreThreshold(score_threshold)
@@ -128,12 +126,12 @@ GenerateDetection::GenerateDetection(
     mType = DataType::kFLOAT;
 };
 
-int GenerateDetection::getNbOutputs() const noexcept
+int GenerateDetection::getNbOutputs() const
 {
     return 1;
 };
 
-int GenerateDetection::initialize() noexcept
+int GenerateDetection::initialize()
 {
     // Init the regWeight [10, 10, 5, 5]
     mRegWeightDevice = std::make_shared<CudaBind<float>>(4);
@@ -151,49 +149,49 @@ int GenerateDetection::initialize() noexcept
     return 0;
 };
 
-void GenerateDetection::terminate() noexcept {};
+void GenerateDetection::terminate(){};
 
-void GenerateDetection::destroy() noexcept
+void GenerateDetection::destroy()
 {
     delete this;
 };
 
-bool GenerateDetection::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool GenerateDetection::supportsFormat(DataType type, PluginFormat format) const
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
+    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
 };
 
-const char* GenerateDetection::getPluginType() const noexcept
+const char* GenerateDetection::getPluginType() const
 {
     return "GenerateDetection_TRT";
 };
 
-const char* GenerateDetection::getPluginVersion() const noexcept
+const char* GenerateDetection::getPluginVersion() const
 {
     return "1";
 };
 
-IPluginV2Ext* GenerateDetection::clone() const noexcept
+IPluginV2Ext* GenerateDetection::clone() const
 {
     return new GenerateDetection(*this);
 };
 
-void GenerateDetection::setPluginNamespace(const char* libNamespace) noexcept
+void GenerateDetection::setPluginNamespace(const char* libNamespace)
 {
     mNameSpace = libNamespace;
 };
 
-const char* GenerateDetection::getPluginNamespace() const noexcept
+const char* GenerateDetection::getPluginNamespace() const
 {
     return mNameSpace.c_str();
 }
 
-size_t GenerateDetection::getSerializationSize() const noexcept
+size_t GenerateDetection::getSerializationSize() const
 {
     return sizeof(int) * 2 + sizeof(float) * 2 + sizeof(int) * 2 + sizeof(nvinfer1::Dims);
 };
 
-void GenerateDetection::serialize(void* buffer) const noexcept
+void GenerateDetection::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mNbClasses);
@@ -206,7 +204,7 @@ void GenerateDetection::serialize(void* buffer) const noexcept
     ASSERT(d == a + getSerializationSize());
 };
 
-GenerateDetection::GenerateDetection(const void* data, size_t length) noexcept
+GenerateDetection::GenerateDetection(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     int num_classes = read<int>(d);
@@ -232,7 +230,7 @@ GenerateDetection::GenerateDetection(const void* data, size_t length) noexcept
     mType = DataType::kFLOAT;
 };
 
-void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept
+void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
     // classifier_delta_bbox[N, anchors, num_classes*4, 1, 1]
     // classifier_class[N, anchors, num_classes, 1, 1]
@@ -247,13 +245,13 @@ void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbI
     assert(inputs[2].nbDims == 2 && inputs[2].d[1] == 4);
 };
 
-size_t GenerateDetection::getWorkspaceSize(int batch_size) const noexcept
+size_t GenerateDetection::getWorkspaceSize(int batch_size) const
 {
     RefineDetectionWorkSpace refine(batch_size, mAnchorsCnt, mParam, mType);
     return refine.totalSize;
 };
 
-Dims GenerateDetection::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims GenerateDetection::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -270,8 +268,8 @@ Dims GenerateDetection::getOutputDimensions(int index, const Dims* inputs, int n
     return detections;
 }
 
-int32_t GenerateDetection::enqueue(
-    int32_t batch_size, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+int GenerateDetection::enqueue(
+    int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
 
     void* detections = outputs[0];
@@ -282,7 +280,7 @@ int32_t GenerateDetection::enqueue(
         = DetectionPostProcess(stream, batch_size, mAnchorsCnt, static_cast<float*>(mRegWeightDevice->mPtr),
             static_cast<float>(mImageSize.d[1]), // Image Height
             static_cast<float>(mImageSize.d[2]), // Image Width
-            DataType::kFLOAT,                    // mType,
+            DataType::kFLOAT,                                        // mType,
             mParam, refDetcWorkspace, workspace,
             inputs[1],       // inputs[InScore]
             inputs[0],       // inputs[InDelta],
@@ -294,7 +292,7 @@ int32_t GenerateDetection::enqueue(
     return status;
 };
 
-DataType GenerateDetection::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+DataType GenerateDetection::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
@@ -302,13 +300,13 @@ DataType GenerateDetection::getOutputDataType(int index, const nvinfer1::DataTyp
 
 // Return true if output tensor is broadcast across a batch.
 bool GenerateDetection::isOutputBroadcastAcrossBatch(
-    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool GenerateDetection::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool GenerateDetection::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
@@ -316,7 +314,7 @@ bool GenerateDetection::canBroadcastInputAcrossBatch(int inputIndex) const noexc
 // Configure the layer with input and output data types.
 void GenerateDetection::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
     check_valid_inputs(inputDims, nbInputs);
     assert(inputDims[0].d[0] == inputDims[1].d[0] && inputDims[1].d[0] == inputDims[2].d[0]);
@@ -328,9 +326,9 @@ void GenerateDetection::configurePlugin(const Dims* inputDims, int nbInputs, con
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void GenerateDetection::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void GenerateDetection::detachFromContext() noexcept {}
+void GenerateDetection::detachFromContext() {}

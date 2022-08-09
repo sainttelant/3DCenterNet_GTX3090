@@ -7,16 +7,16 @@
 #include "onnx/defs/schema.h"
 
 namespace ONNX_NAMESPACE {
-static const char* Constant_ver13_doc = R"DOC(
+static const char* Constant_ver12_doc = R"DOC(
 This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,
 or value_* must be specified.
 )DOC";
 
 ONNX_OPERATOR_SET_SCHEMA(
     Constant,
-    13,
+    12,
     OpSchema()
-        .SetDoc(Constant_ver13_doc)
+        .SetDoc(Constant_ver12_doc)
         .Attr(
             "value",
             "The value for the elements of the output tensor.",
@@ -64,7 +64,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "T")
         .TypeConstraint(
             "T",
-            OpSchema::all_tensor_types_with_bfloat(),
+            OpSchema::all_tensor_types(),
             "Constrain input and output types to all tensor types.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
           auto* value = ctx.getAttribute("value");
@@ -231,7 +231,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             // from the input 'shape' tensor, then we add the same number
             // of dimensions (without any dim_value information) to the
             // output.
-            if (hasInputShape(ctx, 0)) {
+            if (ctx.getInputType(0)->tensor_type().has_shape()) {
               auto& input_shape = getInputShape(ctx, 0);
               auto input_shape_dim_size = input_shape.dim_size();
               if (input_shape_dim_size > 1) {
@@ -241,13 +241,15 @@ ONNX_OPERATOR_SET_SCHEMA(
               if (input_shape.dim(0).has_dim_value()) {
                 const auto& input_shape_dim_value =
                     input_shape.dim(0).dim_value();
-                auto final_output_shape = ctx.getOutputType(0)
-                                              ->mutable_tensor_type()
-                                              ->mutable_shape();
-                for (int i = 0; i < input_shape_dim_value; ++i) {
-                  auto newdim = final_output_shape->add_dim();
-                  (void)(newdim); // To eliminate "unused variable" compiler
-                                  // warning.
+                if (input_shape_dim_value > 0) {
+                  auto final_output_shape = ctx.getOutputType(0)
+                                                ->mutable_tensor_type()
+                                                ->mutable_shape();
+                  for (int i = 0; i < input_shape_dim_value; ++i) {
+                    auto newdim = final_output_shape->add_dim();
+                    (void)(newdim); // To eliminate "unused variable" compiler
+                                    // warning.
+                  }
                 }
               }
             }
@@ -412,7 +414,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain output types to float tensors.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
-          propagateElemTypeFromAttributeToOutput(ctx, "dtype", 0, TensorProto::FLOAT);
+          propagateElemTypeFromAttributeToOutput(ctx, "dtype", 0);
           propagateShapeFromAttributeToOutput(ctx, "shape", 0);
         }));
 
@@ -462,7 +464,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain output types to float tensors.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
-          propagateElemTypeFromAttributeToOutput(ctx, "dtype", 0, TensorProto::FLOAT);
+          propagateElemTypeFromAttributeToOutput(ctx, "dtype", 0);
           propagateShapeFromAttributeToOutput(ctx, "shape", 0);
         }));
 

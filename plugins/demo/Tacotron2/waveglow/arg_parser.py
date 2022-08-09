@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 import argparse
 
@@ -21,7 +19,7 @@ def parse_waveglow_args(parent, add_help=False):
     Parse commandline arguments.
     """
     parser = argparse.ArgumentParser(parents=[parent], add_help=add_help)
-
+    
     # misc parameters
     parser.add_argument('--n-mel-channels', default=80, type=int,
                         help='Number of bins in mel-spectrograms')

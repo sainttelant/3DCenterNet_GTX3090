@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cstdint>
 namespace nvinfer1
 {
 namespace plugin
@@ -26,7 +25,7 @@ int clz(int x)
 {
     for (int i = 31; i >= 0; --i)
     {
-        if ((1U << i) & x)
+        if ((1 << i) & x)
         {
             return 31 - i;
         }
@@ -46,8 +45,7 @@ int find_log_2(int x, bool round_up = false)
     return a;
 }
 
-void findDivisor(int denom,
-                  unsigned int& mul_coeff, unsigned int& shift_coeff)
+void find_divisor(int denom, unsigned int& mul_coeff, unsigned int& shift_coeff)
 {
     if (denom == 0)
     {
@@ -75,8 +73,8 @@ void findDivisor(int denom,
     // Once we've picked Y, then X [our mul_coeff value] is simply Y/D, rounding up,
     // and we save shift_coeff as whatever further shift we have to do beyond
     // what the umulhi() implies.
-    uint32_t p = 31 + find_log_2(denom, true);
-    uint32_t m = ((1ull << p) + (uint32_t) denom - 1) / (uint32_t) denom;
+    unsigned int p = 31 + find_log_2(denom, true);
+    unsigned int m = ((1ull << p) + (unsigned int) denom - 1) / (unsigned int) denom;
     mul_coeff = m;
     shift_coeff = p - 32;
 }

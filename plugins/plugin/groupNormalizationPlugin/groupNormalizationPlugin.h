@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #ifndef TRT_GROUP_NORM_PLUGIN_H
 #define TRT_GROUP_NORM_PLUGIN_H
 
-#include "serialize.hpp"
 #include "plugin.h"
+#include "serialize.hpp"
 #include <cudnn.h>
-#include <vector>
 #include <iostream>
 #include <string>
+#include <vector>
 
 // One of the preferred ways of making TensorRT to be able to see
 // our custom layer requires extending IPluginV2 and IPluginCreator classes.
@@ -33,7 +33,7 @@ namespace plugin
 {
 
 template <typename T>
-cudaError_t scaleShiftChannelsInplace(T* inOut, const int B, const int C, const int channelVolume, const float* beta,
+void scaleShiftChannelsInplace(T* inOut, const int B, const int C, const int channelVolume, const float* beta,
     const float* gamma, cudaStream_t stream);
 
 class GroupNormalizationPlugin final : public nvinfer1::IPluginV2DynamicExt
@@ -47,49 +47,49 @@ public:
     // delete default constructor.
     GroupNormalizationPlugin() = delete;
 
-    int getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
     // DynamicExt plugins returns DimsExprs class instead of Dims
-    DimsExprs getOutputDimensions(int index, const nvinfer1::DimsExprs* inputs, int nbInputDims,
-        nvinfer1::IExprBuilder& exprBuilder) noexcept override;
+    DimsExprs getOutputDimensions(
+        int index, const nvinfer1::DimsExprs* inputs, int nbInputDims, nvinfer1::IExprBuilder& exprBuilder) override;
 
-    int initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override;
+    void terminate() override;
 
     size_t getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
-        const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const noexcept override;
+        const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const override;
 
     int enqueue(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
-        const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
+        const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
     bool supportsFormatCombination(
-        int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept override;
+        int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    nvinfer1::IPluginV2DynamicExt* clone() const noexcept override;
+    nvinfer1::IPluginV2DynamicExt* clone() const override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    void attachToContext(cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept override;
+    void attachToContext(cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) override;
 
-    void detachFromContext() noexcept override;
+    void detachFromContext() override;
 
-    void setPluginNamespace(const char* pluginNamespace) noexcept override;
+    void setPluginNamespace(const char* pluginNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
     void configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
-                       const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) noexcept override;
+        const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) override;
 
 private:
     const char* mPluginNamespace;
@@ -104,6 +104,16 @@ private:
     // These are buffers initialized to 1 and 0 respectively
     void* bnScale;
     void* bnBias;
+
+protected:
+    // To prevent compiler warnings.
+    using nvinfer1::IPluginV2DynamicExt::canBroadcastInputAcrossBatch;
+    using nvinfer1::IPluginV2DynamicExt::configurePlugin;
+    using nvinfer1::IPluginV2DynamicExt::enqueue;
+    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
+    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
+    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
+    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
 class GroupNormalizationPluginCreator : public IPluginCreator
@@ -113,19 +123,19 @@ public:
 
     ~GroupNormalizationPluginCreator() override = default;
 
-    const char* getPluginName() const noexcept override;
+    const char* getPluginName() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    const PluginFieldCollection* getFieldNames() noexcept override;
+    const PluginFieldCollection* getFieldNames() override;
 
-    IPluginV2DynamicExt* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2DynamicExt* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-    IPluginV2DynamicExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
+    IPluginV2DynamicExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
-    void setPluginNamespace(const char* pluginNamespace) noexcept override;
+    void setPluginNamespace(const char* pluginNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
 private:
     static PluginFieldCollection mFC;

@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 
 ARG CUDA_VERSION=10.2
 ARG OS_VERSION=18.04
+ARG NVCR_SUFFIX=
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
-
-ENV TRT_VERSION 8.2.1.8
 
 ARG uid=1000
 ARG gid=1000
-RUN groupadd -r -f -g ${gid} trtuser && useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser
+RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/bash trtuser
 RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
@@ -78,35 +77,25 @@ RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64*.deb /pdk_files/cuda-repo-ubuntu*
     && rm -rf /var/lib/apt/lists/*
 
 # Unpack cudnn
-RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \
+RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \ 
     && dpkg -x /pdk_files/libcudnn[7-8]-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \
+    && cd /pdk_files/cudnn/usr/include/aarch64-linux-gnu \
     && cd /pdk_files/cudnn/usr/lib/aarch64-linux-gnu \
-    && ln -s libcudnn.so.[7-9] libcudnn.so \
+    && ln -s libcudnn.so.7 libcudnn.so \
     && cd /pdk_files/cudnn \
     && ln -s usr/include/aarch64-linux-gnu include \
     && ln -s usr/lib/aarch64-linux-gnu lib \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_adv_infer_v[7-9].h /usr/include/cudnn_adv_infer.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_adv_train_v[7-9].h /usr/include/cudnn_adv_train.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_backend_v[7-9].h /usr/include/cudnn_backend.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_cnn_infer_v[7-9].h /usr/include/cudnn_cnn_infer.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_cnn_train_v[7-9].h /usr/include/cudnn_cnn_train.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_ops_infer_v[7-9].h /usr/include/cudnn_ops_infer.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_ops_train_v[7-9].h /usr/include/cudnn_ops_train.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_v[7-9].h /usr/include/cudnn.h \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_version_v[7-9].h /usr/include/cudnn_version.h
+    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_v[7-9].h /usr/include/cudnn.h
 
 # Unpack libnvinfer
-RUN dpkg -x /pdk_files/libnvinfer[0-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+RUN dpkg -x /pdk_files/libnvinfer[0-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvinfer-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvparsers[6-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvparsers[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvparsers-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-plugin[6-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-plugin[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvinfer-plugin-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvonnxparsers[6-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvonnxparsers[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvonnxparsers-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt
-
-# Clean up debs
-RUN rm -rf /pdk_files/*.deb
 
 # create stub libraries
 RUN cd /pdk_files/tensorrt \
@@ -120,8 +109,8 @@ RUN cd /pdk_files/tensorrt \
        ; done
 
 # Set environment and working directory
-ENV TRT_LIBPATH /pdk_files/tensorrt/lib
-ENV TRT_OSSPATH /workspace/TensorRT
+ENV TRT_RELEASE /pdk_files/tensorrt
+ENV TRT_SOURCE /workspace/TensorRT
 WORKDIR /workspace
 
 USER trtuser

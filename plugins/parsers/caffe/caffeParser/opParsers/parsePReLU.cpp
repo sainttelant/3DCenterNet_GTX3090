@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,11 +37,9 @@ ILayer* parsePReLU(INetworkDefinition& network, const trtcaffe::LayerParameter& 
     {
         return nullptr;
     }
-
-    int nWeights = channelShared ? 1 : inputDims.d[0]; // Caffe treats second input dimension as channels
-    Dims slopesDims{inputDims.nbDims, {}};
-    std::fill(slopesDims.d, slopesDims.d + slopesDims.nbDims, 1);
-    slopesDims.d[0] = nWeights;
+    int nWeights = channelShared ? 1 : inputDims.d[1]; // Caffe treats second input dimension as channels
+    Dims slopesDims{inputDims.nbDims, {1}, {DimensionType::kSPATIAL}};
+    slopesDims.d[1] = nWeights;
 
     Weights w = weightFactory.isInitialized() ? weightFactory(msg.name(), WeightType::kGENERIC) :
                 weightFactory.allocateWeights(nWeights, std::uniform_real_distribution<float>(0.F, 1.F));

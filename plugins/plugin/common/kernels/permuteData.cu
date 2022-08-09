@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,8 +65,15 @@ pluginStatus_t permuteData_gpu(
     return STATUS_SUCCESS;
 }
 
-// permuteData LAUNCH CONFIG
-typedef pluginStatus_t (*pdFunc)(cudaStream_t, const int, const int, const int, const int, bool, const void*, void*);
+// permuteData LAUNCH CONFIG 
+typedef pluginStatus_t (*pdFunc)(cudaStream_t,
+                              const int,
+                              const int,
+                              const int,
+                              const int,
+                              bool,
+                              const void*,
+                              void*);
 
 struct pdLaunchConfig
 {
@@ -88,11 +95,18 @@ struct pdLaunchConfig
     }
 };
 
-static std::array<pdLaunchConfig, 2> pdLCOptions = {
-    pdLaunchConfig(DataType::kFLOAT, permuteData_gpu<float>), pdLaunchConfig(DataType::kHALF, permuteData_gpu<__half>)};
+static std::array<pdLaunchConfig, 1> pdLCOptions = {
+  pdLaunchConfig(DataType::kFLOAT, permuteData_gpu<float>)};
 
-pluginStatus_t permuteData(cudaStream_t stream, const int nthreads, const int num_classes, const int num_data,
-    const int num_dim, const DataType DT_DATA, bool confSigmoid, const void* data, void* new_data)
+pluginStatus_t permuteData(cudaStream_t stream,
+                        const int nthreads,
+                        const int num_classes,
+                        const int num_data,
+                        const int num_dim,
+                        const DataType DT_DATA,
+                        bool confSigmoid,
+                        const void* data,
+                        void* new_data)
 {
     pdLaunchConfig lc = pdLaunchConfig(DT_DATA);
     for (unsigned i = 0; i < pdLCOptions.size(); ++i)
@@ -112,3 +126,4 @@ pluginStatus_t permuteData(cudaStream_t stream, const int nthreads, const int nu
     }
     return STATUS_BAD_PARAM;
 }
+

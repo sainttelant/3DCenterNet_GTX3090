@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include "NvInfer.h"
 #include "common.h"
 #include <algorithm>
+#include <assert.h>
 #include <stdio.h>
 #include <vector>
 
@@ -42,7 +43,7 @@ public:
         const std::vector<std::string>& directories)
         : mBatchSize{batchSize}
         , mMaxBatches{maxBatches}
-        , mDims{3, {1, 28, 28}} //!< We already know the dimensions of MNIST images.
+        , mDims{3, 1, 28, 28} //!< We already know the dimensions of MNIST images.
     {
         readDataFile(locateFile(dataFile, directories));
         readLabelsFile(locateFile(labelsFile, directories));
@@ -90,7 +91,7 @@ public:
 
     nvinfer1::Dims getDims() const override
     {
-        return Dims{4, {mBatchSize, mDims.d[0], mDims.d[1], mDims.d[2]}};
+        return Dims{4, {mBatchSize, mDims.d[0], mDims.d[1], mDims.d[2]}, {}};
     }
 
 private:
@@ -102,7 +103,7 @@ private:
         file.read(reinterpret_cast<char*>(&magicNumber), sizeof(magicNumber));
         // All values in the MNIST files are big endian.
         magicNumber = samplesCommon::swapEndianness(magicNumber);
-        ASSERT(magicNumber == 2051 && "Magic Number does not match the expected value for an MNIST image set");
+        assert(magicNumber == 2051 && "Magic Number does not match the expected value for an MNIST image set");
 
         // Read number of images and dimensions
         file.read(reinterpret_cast<char*>(&numImages), sizeof(numImages));
@@ -129,7 +130,7 @@ private:
         file.read(reinterpret_cast<char*>(&magicNumber), sizeof(magicNumber));
         // All values in the MNIST files are big endian.
         magicNumber = samplesCommon::swapEndianness(magicNumber);
-        ASSERT(magicNumber == 2049 && "Magic Number does not match the expected value for an MNIST labels file");
+        assert(magicNumber == 2049 && "Magic Number does not match the expected value for an MNIST labels file");
 
         file.read(reinterpret_cast<char*>(&numImages), sizeof(numImages));
         numImages = samplesCommon::swapEndianness(numImages);
@@ -161,16 +162,16 @@ public:
         , mDataDir(directories)
     {
         FILE* file = fopen(locateFile(mPrefix + std::string("0") + mSuffix, mDataDir).c_str(), "rb");
-        ASSERT(file != nullptr);
+        assert(file != nullptr);
         int d[4];
         size_t readSize = fread(d, sizeof(int), 4, file);
-        ASSERT(readSize == 4);
+        assert(readSize == 4);
         mDims.nbDims = 4;  // The number of dimensions.
         mDims.d[0] = d[0]; // Batch Size
         mDims.d[1] = d[1]; // Channels
         mDims.d[2] = d[2]; // Height
         mDims.d[3] = d[3]; // Width
-        ASSERT(mDims.d[0] > 0 && mDims.d[1] > 0 && mDims.d[2] > 0 && mDims.d[3] > 0);
+        assert(mDims.d[0] > 0 && mDims.d[1] > 0 && mDims.d[2] > 0 && mDims.d[3] > 0);
         fclose(file);
 
         mImageSize = mDims.d[1] * mDims.d[2] * mDims.d[3];
@@ -221,7 +222,7 @@ public:
 
         for (int csize = 1, batchPos = 0; batchPos < mBatchSize; batchPos += csize, mFileBatchPos += csize)
         {
-            ASSERT(mFileBatchPos > 0 && mFileBatchPos <= mDims.d[0]);
+            assert(mFileBatchPos > 0 && mFileBatchPos <= mDims.d[0]);
             if (mFileBatchPos == mDims.d[0] && !update())
             {
                 return false;
@@ -303,12 +304,12 @@ private:
 
             int d[4];
             size_t readSize = fread(d, sizeof(int), 4, file);
-            ASSERT(readSize == 4);
-            ASSERT(mDims.d[0] == d[0] && mDims.d[1] == d[1] && mDims.d[2] == d[2] && mDims.d[3] == d[3]);
+            assert(readSize == 4);
+            assert(mDims.d[0] == d[0] && mDims.d[1] == d[1] && mDims.d[2] == d[2] && mDims.d[3] == d[3]);
             size_t readInputCount = fread(getFileBatch(), sizeof(float), mDims.d[0] * mImageSize, file);
-            ASSERT(readInputCount == size_t(mDims.d[0] * mImageSize));
+            assert(readInputCount == size_t(mDims.d[0] * mImageSize));
             size_t readLabelCount = fread(getFileLabels(), sizeof(float), mDims.d[0], file);
-            ASSERT(readLabelCount == 0 || readLabelCount == size_t(mDims.d[0]));
+            assert(readLabelCount == 0 || readLabelCount == size_t(mDims.d[0]));
 
             fclose(file);
         }

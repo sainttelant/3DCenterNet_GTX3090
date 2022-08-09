@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #ifndef _REDUCED_MATH_PLUGIN_H
 #define _REDUCED_MATH_PLUGIN_H
-#include <cstdint>
 // Dynamically strength-reduced div and mod
 //
 // Ideas taken from Sean Baxter's MGPU library.
@@ -31,15 +29,15 @@ namespace plugin
 namespace detail
 {
 
-void findDivisor(int denom, unsigned int& mul_coeff, unsigned int& shift_coeff);
+void find_divisor(int denom, unsigned int& mul_coeff, unsigned int& shift_coeff);
 
-__host__ __device__ __forceinline__ uint32_t umulhi(uint32_t x, uint32_t y)
+__host__ __device__ __forceinline__ unsigned int umulhi(unsigned int x, unsigned int y)
 {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 100
     return __umulhi(x, y);
 #else
-    uint64_t z = (uint64_t) x * (uint64_t) y;
-    return (uint32_t) (z >> 32);
+    unsigned long long z = (unsigned long long) x * (unsigned long long) y;
+    return (unsigned int) (z >> 32);
 #endif
 }
 
@@ -50,20 +48,18 @@ __host__ __device__ inline int div_up(int a, int b)
     return (a - 1) / b + 1;
 }
 
-} //end namespace detail
+} // end namespace detail
 
-class ReducedDivisor
+class reduced_divisor
 {
 public:
-    ReducedDivisor() {}
-    __host__ __forceinline__
-    ReducedDivisor(int _y)
+    reduced_divisor() {}
+    __host__ __forceinline__ reduced_divisor(int _y)
         : y(_y)
     {
-        detail::findDivisor(y, mul_coeff, shift_coeff);
+        detail::find_divisor(y, mul_coeff, shift_coeff);
     }
-    __host__ __device__ __forceinline__
-    ReducedDivisor(unsigned _mul_coeff, unsigned _shift_coeff, int _y)
+    __host__ __device__ __forceinline__ reduced_divisor(unsigned _mul_coeff, unsigned _shift_coeff, int _y)
         : mul_coeff(_mul_coeff)
         , shift_coeff(_shift_coeff)
         , y(_y)
@@ -71,10 +67,10 @@ public:
     }
     __host__ __device__ __forceinline__ int div(int x) const
     {
-        // if dividing by 1, then findDivisor wouldn't have worked because
+        // if dividing by 1, then find_divisor wouldn't have worked because
         // mul_coeff would have had to be 2^32, which can't be represented,
         // so we have to special case that one.
-        return (y != 1) ? detail::umulhi((uint32_t) x, mul_coeff) >> shift_coeff : x;
+        return (y != 1) ? detail::umulhi((unsigned int) x, mul_coeff) >> shift_coeff : x;
     }
     __host__ __device__ __forceinline__ int mod(int x) const
     {
@@ -96,8 +92,8 @@ public:
     }
 
 protected:
-    uint32_t mul_coeff;
-    uint32_t shift_coeff;
+    unsigned int mul_coeff;
+    unsigned int shift_coeff;
     int y;
 };
 

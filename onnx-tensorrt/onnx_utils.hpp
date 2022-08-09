@@ -1,5 +1,23 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #include <fstream>
@@ -15,52 +33,18 @@
 namespace
 {
 
-//! Describes occurrence of a named dimension.
-class NamedDimension
-{
-public:
-    //! TensorRT tensor.
-    nvinfer1::ITensor* tensor;
-
-    //! Index of tensor dimension to be named.
-    int32_t index;
-
-    //! ONNX "dim param" that is the name of the dimension.
-    std::string dimParam;
-
-    //! Construct a NamedDimension where the tensor will be filled in later.
-    NamedDimension(int32_t index_, const std::string& dimParam_)
-        : tensor(nullptr)
-        , index(index_)
-        , dimParam(dimParam_)
-    {
-    }
-};
-
 template <typename OnnxDims>
-bool convertOnnxDims(OnnxDims const& onnxDims, nvinfer1::Dims& trtDims, std::vector<NamedDimension>& namedDims)
+bool convertOnnxDims(OnnxDims const& onnxDims, nvinfer1::Dims& trtDims)
 {
-    std::vector<int32_t> onnxDimsVec;
+    std::vector<int> onnxDims_vector;
     for (const auto& onnxDim : onnxDims)
     {
-        // For empty dimensions, the ONNX specification says it's a dynamic dimension
-        if (!onnxDim.has_dim_value() && !onnxDim.has_dim_param())
-        {
-            onnxDimsVec.emplace_back(-1);
-        }
-        else
-        {
-            if (!onnxDim.dim_param().empty())
-            {
-                namedDims.emplace_back(static_cast<int32_t>(onnxDimsVec.size()), onnxDim.dim_param());
-            }
-            const int32_t dim = onnxDim.dim_param() == "" ? (onnxDim.dim_value() >= 0 ? onnxDim.dim_value() : -1) : -1;
-            onnxDimsVec.emplace_back(dim);
-        }
+        const int dim = onnxDim.dim_param() == "" ? (onnxDim.dim_value() >= 0 ? onnxDim.dim_value() : -1) : -1;
+        onnxDims_vector.emplace_back(dim);
     }
-    trtDims.nbDims = onnxDimsVec.size();
+    trtDims.nbDims = onnxDims_vector.size();
     assert(trtDims.nbDims <= nvinfer1::Dims::MAX_DIMS);
-    std::copy(onnxDimsVec.begin(), onnxDimsVec.end(), trtDims.d);
+    std::copy(onnxDims_vector.begin(), onnxDims_vector.end(), trtDims.d);
     return true;
 }
 

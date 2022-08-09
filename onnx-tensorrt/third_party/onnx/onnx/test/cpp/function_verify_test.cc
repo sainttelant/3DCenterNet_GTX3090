@@ -24,17 +24,15 @@ void VerifyTypeConstraint(
       OpSchema::all_tensor_types().begin(), OpSchema::all_tensor_types().end());
   for (const auto& input : function_op.inputs()) {
     std::string name = input.GetName();
-    auto &tvec = tc_map[name];
     for (const auto& t : input.GetTypes()) {
-      tvec.emplace_back(*t);
+      tc_map[name].emplace_back(*t);
     }
   }
 
   for (const auto& output : function_op.outputs()) {
     std::string name = output.GetName();
-    auto &tvec = tc_map[name];
     for (const auto& t : output.GetTypes()) {
-      tvec.emplace_back(*t);
+      tc_map[name].emplace_back(*t);
     }
   }
 

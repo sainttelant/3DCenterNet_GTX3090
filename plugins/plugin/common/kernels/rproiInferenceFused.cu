@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +44,7 @@ pluginStatus_t RPROIInferenceFused(cudaStream_t stream,
                                   void* rois,
                                   const DataType t_top,
                                   const DLayout_t l_top,
-                                  void* top,
-                                  size_t deviceSmemSize)
+                                  void* top)
 {
     if (imInfo == NULL || anchors == NULL || scores == NULL || deltas == NULL || featureMap == NULL || workspaces == NULL || rois == NULL || top == NULL)
     {
@@ -95,8 +94,7 @@ pluginStatus_t RPROIInferenceFused(cudaStream_t stream,
                           featureMap,
                           t_top,
                           l_top,
-                          top,
-                          deviceSmemSize);
+                          top);
     ASSERT_FAILURE(status == STATUS_SUCCESS);
 
     return STATUS_SUCCESS;

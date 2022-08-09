@@ -5,7 +5,6 @@
 #include "DCNv2.hpp"
 #include "dcn_v2_im2col_cuda.h"
 #include <iostream>
-#include <NvUffParser.h>
 
 using namespace nvinfer1;
 using nvinfer1::plugin::DCNv2Plugin;
@@ -61,7 +60,7 @@ DCNv2Plugin::DCNv2Plugin(int in_channel,
     cublasCreate(&_cublas_handle);
 }
 
-int DCNv2Plugin::initialize() noexcept{
+int DCNv2Plugin::initialize() {
     if(_initialized) return 0;
     size_t ones_size = _output_height * _output_width * sizeof(float);
     size_t weight_size = _h_weight.size()* sizeof(float);
@@ -82,7 +81,7 @@ int DCNv2Plugin::initialize() noexcept{
 
     return 0;
 }
-void DCNv2Plugin::terminate() noexcept {
+void DCNv2Plugin::terminate() {
     if (!_initialized) {
         return;
     }
@@ -99,9 +98,9 @@ DCNv2Plugin::~DCNv2Plugin() {
 }
 
 
-void DCNv2Plugin::configurePlugin (const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs, 
-    const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) noexcept {
-  //assert(nbInputs == 3);
+void DCNv2Plugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs, 
+    const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) {
+  assert(nbInputs == 3);
   assert(nbOutputs == 1);
   auto &input_desc = in[0].desc;
   auto input_dims = input_desc.dims;
@@ -109,17 +108,17 @@ void DCNv2Plugin::configurePlugin (const nvinfer1::DynamicPluginTensorDesc* in, 
   _output_width = (input_dims.d[3] + 2 * _padding - (_dilation * (_kernel_H - 1) + 1)) / _stride + 1;
 }
 
-bool DCNv2Plugin::supportsFormatCombination  (int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept {
+bool DCNv2Plugin::supportsFormatCombination(int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) {
   assert(nbInputs == 3);
   assert(nbOutputs == 1);
   assert(pos < (nbInputs + nbOutputs));
-  return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == TensorFormat::kLINEAR);
+  return (inOut[pos].type == nvinfer1::DataType::kFLOAT) && (inOut[pos].format == nvinfer1::TensorFormat::kNCHW);
 }
 
-nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions  (int outputIndex,
+nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions(int outputIndex,
                                                      const nvinfer1::DimsExprs* inputs,
                                                      int nbInputs,
-                                                     nvinfer1::IExprBuilder& exprBuilder)noexcept {
+                                                     nvinfer1::IExprBuilder& exprBuilder) {
   assert(outputIndex == 0);
   assert(nbInputs == 3);
   nvinfer1::DimsExprs output(inputs[0]);
@@ -133,14 +132,14 @@ nvinfer1::DimsExprs DCNv2Plugin::getOutputDimensions  (int outputIndex,
   return output;
 }
 
-size_t DCNv2Plugin::getWorkspaceSize (const nvinfer1::PluginTensorDesc* inputs, int nbInputs, const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const noexcept{
+size_t DCNv2Plugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs, const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const {
   return 0;
 }
 
-int DCNv2Plugin::enqueue  (const nvinfer1::PluginTensorDesc* inputDesc,
+int DCNv2Plugin::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
                          const nvinfer1::PluginTensorDesc* outputDesc,
                          const void* const* inputs, void* const* outputs,
-                         void* workspace,  cudaStream_t stream) noexcept{
+                         void* workspace,  cudaStream_t stream) {
     if (!_initialized) initialize();
     float alpha ,beta;
     int m, n, k;
@@ -154,8 +153,8 @@ int DCNv2Plugin::enqueue  (const nvinfer1::PluginTensorDesc* inputDesc,
     assert(b == 1);
     int h = input_dims.d[2];
     int w = input_dims.d[3];
-    /* assert(h == _input_dims.d[2]);
-    assert(w == _input_dims.d[3]); */
+    assert(h == _input_dims.d[2]);
+    assert(w == _input_dims.d[3]);
 
     int height_out = (h + 2 * _padding - (_dilation * (_kernel_H - 1) + 1)) / _stride + 1;
     int width_out = (w + 2 * _padding - (_dilation * (_kernel_W - 1) + 1)) / _stride + 1;
@@ -197,20 +196,20 @@ int DCNv2Plugin::enqueue  (const nvinfer1::PluginTensorDesc* inputDesc,
     return 0;
 }
 
-void DCNv2Plugin::destroy() noexcept{
+void DCNv2Plugin::destroy() {
   delete this;
 }
 
 
-nvinfer1::DataType DCNv2Plugin::getOutputDataType  (int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept{
+nvinfer1::DataType DCNv2Plugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const {
   assert(index == 0);
-  //assert(nbInputs == 3);
+  assert(nbInputs == 3);
   assert(inputTypes[0] == nvinfer1::DataType::kFLOAT);
   return inputTypes[0];
 }
 
 
-nvinfer1::IPluginV2DynamicExt* DCNv2Plugin::clone()const noexcept {
+nvinfer1::IPluginV2DynamicExt* DCNv2Plugin::clone() const {
   IPluginV2DynamicExt* plugin = new DCNv2Plugin(_in_channel, _out_channel,
                                                 _kernel_H, _kernel_W, _deformable_group,
                                                 _dilation, _groups, _padding, _stride,
@@ -241,22 +240,22 @@ DCNv2PluginCreator::DCNv2PluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* DCNv2PluginCreator::getPluginName()const noexcept
+const char* DCNv2PluginCreator::getPluginName() const
 {
     return "DCNv2";
 }
 
-const char* DCNv2PluginCreator::getPluginVersion()const noexcept
+const char* DCNv2PluginCreator::getPluginVersion() const
 {
     return "001";
 }
 
-const PluginFieldCollection* DCNv2PluginCreator::getFieldNames () noexcept
+const PluginFieldCollection* DCNv2PluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2DynamicExt* DCNv2PluginCreator::createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc) noexcept
+IPluginV2DynamicExt* DCNv2PluginCreator::createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc)
 {
     std::vector<float> weight;
     std::vector<float> bias;
@@ -345,7 +344,7 @@ IPluginV2DynamicExt* DCNv2PluginCreator::createPlugin(const char* name, const nv
     return obj;
 }
 
-IPluginV2DynamicExt* DCNv2PluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2DynamicExt* DCNv2PluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     DCNv2Plugin* obj = new DCNv2Plugin{serialData, serialLength}; 
     obj->setPluginNamespace(mNamespace.c_str());

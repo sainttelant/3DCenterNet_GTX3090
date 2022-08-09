@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 #include "proposalLayerPlugin.h"
 #include "mrcnn_config.h"
 #include "plugin.h"
-#include <cuda_runtime_api.h>
 #include <algorithm>
+#include <cuda_runtime_api.h>
 #include <iostream>
 #include <math.h>
 
@@ -37,7 +37,7 @@ std::vector<PluginField> ProposalLayerPluginCreator::mPluginAttributes;
 
 ProposalLayerPluginCreator::ProposalLayerPluginCreator()
 {
-    mPluginAttributes.clear();
+
     mPluginAttributes.emplace_back(PluginField("prenms_topk", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("keep_topk", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("iou_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
@@ -47,22 +47,22 @@ ProposalLayerPluginCreator::ProposalLayerPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* ProposalLayerPluginCreator::getPluginName() const noexcept
+const char* ProposalLayerPluginCreator::getPluginName() const
 {
     return PROPOSALLAYER_PLUGIN_NAME;
-}
+};
 
-const char* ProposalLayerPluginCreator::getPluginVersion() const noexcept
+const char* ProposalLayerPluginCreator::getPluginVersion() const
 {
     return PROPOSALLAYER_PLUGIN_VERSION;
-}
+};
 
-const PluginFieldCollection* ProposalLayerPluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* ProposalLayerPluginCreator::getFieldNames()
 {
     return &mFC;
-}
+};
 
-IPluginV2Ext* ProposalLayerPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* ProposalLayerPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     auto image_size = MaskRCNNConfig::IMAGE_SHAPE;
     const PluginField* fields = fc->fields;
@@ -87,17 +87,17 @@ IPluginV2Ext* ProposalLayerPluginCreator::createPlugin(const char* name, const P
         if (!strcmp(attrName, "image_size"))
         {
             assert(fields[i].type == PluginFieldType::kINT32);
-            const auto* const dims = static_cast<const int32_t*>(fields[i].data);
+            const auto dims = static_cast<const int32_t*>(fields[i].data);
             std::copy_n(dims, 3, image_size.d);
         }
     }
     return new ProposalLayer(mPreNMSTopK, mKeepTopK, mIOUThreshold, image_size);
-}
+};
 
-IPluginV2Ext* ProposalLayerPluginCreator::deserializePlugin(const char* name, const void* data, size_t length) noexcept
+IPluginV2Ext* ProposalLayerPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
 {
     return new ProposalLayer(data, length);
-}
+};
 
 ProposalLayer::ProposalLayer(int prenms_topk, int keep_topk, float iou_threshold, const nvinfer1::Dims& image_size)
     : mPreNMSTopK(prenms_topk)
@@ -108,7 +108,7 @@ ProposalLayer::ProposalLayer(int prenms_topk, int keep_topk, float iou_threshold
     mBackgroundLabel = -1;
     assert(mPreNMSTopK > 0);
     assert(mKeepTopK > 0);
-    assert(iou_threshold > 0.0F);
+    assert(iou_threshold > 0.0f);
 
     mParam.backgroundLabelId = -1;
     mParam.numClasses = 1;
@@ -119,14 +119,14 @@ ProposalLayer::ProposalLayer(int prenms_topk, int keep_topk, float iou_threshold
     mType = DataType::kFLOAT;
 
     generate_pyramid_anchors(image_size);
-}
+};
 
-int ProposalLayer::getNbOutputs() const noexcept
+int ProposalLayer::getNbOutputs() const
 {
     return 1;
-}
+};
 
-int ProposalLayer::initialize() noexcept
+int ProposalLayer::initialize()
 {
     // Init the mValidCnt of max batch size
     std::vector<int> tempValidCnt(mMaxBatchSize, mPreNMSTopK);
@@ -147,53 +147,53 @@ int ProposalLayer::initialize() noexcept
     }
 
     return 0;
-}
+};
 
-void ProposalLayer::terminate() noexcept {}
+void ProposalLayer::terminate(){};
 
-void ProposalLayer::destroy() noexcept
+void ProposalLayer::destroy()
 {
     delete this;
-}
+};
 
-bool ProposalLayer::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool ProposalLayer::supportsFormat(DataType type, PluginFormat format) const
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
-}
+    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
+};
 
-const char* ProposalLayer::getPluginType() const noexcept
+const char* ProposalLayer::getPluginType() const
 {
     return PROPOSALLAYER_PLUGIN_NAME;
-}
+};
 
-const char* ProposalLayer::getPluginVersion() const noexcept
+const char* ProposalLayer::getPluginVersion() const
 {
     return PROPOSALLAYER_PLUGIN_VERSION;
-}
+};
 
-IPluginV2Ext* ProposalLayer::clone() const noexcept
+IPluginV2Ext* ProposalLayer::clone() const
 {
-    auto* plugin = new ProposalLayer(*this);
+    auto plugin = new ProposalLayer(*this);
     plugin->setPluginNamespace(mNameSpace.c_str());
     return plugin;
-}
+};
 
-void ProposalLayer::setPluginNamespace(const char* libNamespace) noexcept
+void ProposalLayer::setPluginNamespace(const char* libNamespace)
 {
     mNameSpace = libNamespace;
-}
+};
 
-const char* ProposalLayer::getPluginNamespace() const noexcept
+const char* ProposalLayer::getPluginNamespace() const
 {
     return mNameSpace.c_str();
-}
+};
 
-size_t ProposalLayer::getSerializationSize() const noexcept
+size_t ProposalLayer::getSerializationSize() const
 {
     return sizeof(int) * 2 + sizeof(float) + sizeof(int) * 2 + sizeof(nvinfer1::Dims);
-}
+};
 
-void ProposalLayer::serialize(void* buffer) const noexcept
+void ProposalLayer::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mPreNMSTopK);
@@ -203,7 +203,7 @@ void ProposalLayer::serialize(void* buffer) const noexcept
     write(d, mAnchorsCnt);
     write(d, mImageSize);
     ASSERT(d == a + getSerializationSize());
-}
+};
 
 ProposalLayer::ProposalLayer(const void* data, size_t length)
 {
@@ -219,6 +219,7 @@ ProposalLayer::ProposalLayer(const void* data, size_t length)
     mBackgroundLabel = -1;
     mPreNMSTopK = prenms_topk;
     mKeepTopK = keep_topk;
+    mScoreThreshold = 0.0;
     mIOUThreshold = iou_threshold;
 
     mParam.backgroundLabelId = -1;
@@ -230,7 +231,7 @@ ProposalLayer::ProposalLayer(const void* data, size_t length)
     mType = DataType::kFLOAT;
 
     generate_pyramid_anchors(mImageSize);
-}
+};
 
 void ProposalLayer::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
@@ -242,16 +243,16 @@ void ProposalLayer::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInput
     assert(inputs[0].nbDims == 3 && inputs[0].d[1] == 2);
     // foreground_delta
     assert(inputs[1].nbDims == 3 && inputs[1].d[1] == 4);
-}
+};
 
-size_t ProposalLayer::getWorkspaceSize(int batch_size) const noexcept
+size_t ProposalLayer::getWorkspaceSize(int batch_size) const
 {
 
     ProposalWorkSpace proposal(batch_size, mAnchorsCnt, mPreNMSTopK, mParam, mType);
     return proposal.totalSize;
-}
+};
 
-Dims ProposalLayer::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims ProposalLayer::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -268,10 +269,9 @@ Dims ProposalLayer::getOutputDimensions(int index, const Dims* inputs, int nbInp
     return proposals;
 }
 
-void ProposalLayer::generate_pyramid_anchors(const nvinfer1::Dims& image_dims) noexcept
+void ProposalLayer::generate_pyramid_anchors(const nvinfer1::Dims& image_dims)
 {
     assert(image_dims.nbDims == 3 && image_dims.d[0] == 3);
-
     const auto& scales = MaskRCNNConfig::RPN_ANCHOR_SCALES;
     const auto& ratios = MaskRCNNConfig::RPN_ANCHOR_RATIOS;
     const auto& strides = MaskRCNNConfig::BACKBONE_STRIDES;
@@ -281,7 +281,7 @@ void ProposalLayer::generate_pyramid_anchors(const nvinfer1::Dims& image_dims) n
     const float cx = image_dims.d[2] - 1;
 
     auto& anchors = mAnchorBoxesHost;
-    assert(anchors.empty());
+    assert(anchors.size() == 0);
 
     assert(scales.size() == strides.size());
     for (size_t s = 0; s < scales.size(); ++s)
@@ -306,7 +306,7 @@ void ProposalLayer::generate_pyramid_anchors(const nvinfer1::Dims& image_dims) n
 }
 
 int ProposalLayer::enqueue(
-    int batch_size, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+    int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
 
     void* proposals = outputs[0];
@@ -324,23 +324,23 @@ int ProposalLayer::enqueue(
 
     assert(status == cudaSuccess);
     return status;
-}
+};
 
 // Return the DataType of the plugin output at the requested index
-DataType ProposalLayer::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+DataType ProposalLayer::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
 }
 
 // Return true if output tensor is broadcast across a batch.
-bool ProposalLayer::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
+bool ProposalLayer::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool ProposalLayer::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool ProposalLayer::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
@@ -348,7 +348,7 @@ bool ProposalLayer::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
 // Configure the layer with input and output data types.
 void ProposalLayer::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
     check_valid_inputs(inputDims, nbInputs);
     assert(inputDims[0].d[0] == inputDims[1].d[0]);
@@ -360,9 +360,9 @@ void ProposalLayer::configurePlugin(const Dims* inputDims, int nbInputs, const D
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void ProposalLayer::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void ProposalLayer::detachFromContext() noexcept {}
+void ProposalLayer::detachFromContext() {}

@@ -40,14 +40,8 @@ set(PLUGIN_LISTS
     nvFasterRCNN
     batchedNMSPlugin
     flattenConcat
-    coordConvACPlugin
     cropAndResizePlugin
     proposalPlugin
-    efficientNMSPlugin
-    groupNormalizationPlugin
-    leakyReluPlugin
-    splitPlugin
-    scatterPlugin
     batchTilePlugin
     detectionLayerPlugin
     proposalLayerPlugin
@@ -58,8 +52,10 @@ set(PLUGIN_LISTS
     resizeNearestPlugin
     specialSlicePlugin
     instanceNormalizationPlugin
+    groupNormalizationPlugin
+    coordConvACPlugin
     )
-  unset(BERT_GENCODES)
+
 # Add BERT sources if ${BERT_GENCODES} was populated
 if(BERT_GENCODES)
     set(BERT_CU_SOURCES)
@@ -86,21 +82,16 @@ add_subdirectory(common)
 # Set gencodes
 set_source_files_properties(${PLUGIN_CU_SOURCES} PROPERTIES COMPILE_FLAGS ${GENCODES})
 list(APPEND PLUGIN_SOURCES "${PLUGIN_CU_SOURCES}")
-
-
 if (BERT_CU_SOURCES)
-    message(STATUS "BERT_CU_SOURCES IS EABLE<<<<<<<<<<<<<<<<<<<<<<<<<< \n")
     set_source_files_properties(${BERT_CU_SOURCES} PROPERTIES COMPILE_FLAGS ${BERT_GENCODES})
     list(APPEND PLUGIN_SOURCES "${BERT_CU_SOURCES}")
-else()
-    message(STATUS "BERT_CU_SOURCES IS DISABLE<<<<<<<<<<<<<<<<<<<<<<<<<< \n")
 endif()
 
 list(APPEND PLUGIN_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/InferPlugin.cpp")
 list(APPEND PLUGIN_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../samples/common/logger.cpp")
 
 ################################## SHARED LIBRARY #######################################
-# message(STATUS "PLUGIN_SOURCES:\n ${PLUGIN_CU_SOURCES}")
+
 add_library(${SHARED_TARGET} SHARED
     ${PLUGIN_SOURCES}
 )
@@ -117,9 +108,9 @@ set_target_properties(${SHARED_TARGET} PROPERTIES
     CXX_STANDARD "11"
     CXX_STANDARD_REQUIRED "YES"
     CXX_EXTENSIONS "NO"
-    ARCHIVE_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
 )
 
 set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
@@ -136,6 +127,7 @@ target_link_libraries(${SHARED_TARGET}
     ${CUDART_LIB}
     ${CUDNN_LIB}
     nvinfer
+    ${CMAKE_DL_LIBS}
 )
 
 ################################## STATIC LIBRARY #######################################
@@ -156,9 +148,9 @@ set_target_properties(${STATIC_TARGET} PROPERTIES
     CXX_STANDARD "11"
     CXX_STANDARD_REQUIRED "YES"
     CXX_EXTENSIONS "NO"
-    ARCHIVE_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
 )
 
 set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")

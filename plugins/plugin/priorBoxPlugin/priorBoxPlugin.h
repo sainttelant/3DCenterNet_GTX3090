@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,68 +31,70 @@ namespace plugin
 class PriorBox : public IPluginV2Ext
 {
 public:
-    PriorBox(PriorBoxParameters param, int32_t H = 0, int32_t W = 0);
+    PriorBox(PriorBoxParameters param);
+
+    PriorBox(
+        PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios);
 
     PriorBox(const void* buffer, size_t length);
 
     ~PriorBox() override = default;
 
-    int32_t getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
-    Dims getOutputDimensions(int32_t index, const Dims* inputs, int32_t nbInputDims) noexcept override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-    int32_t initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override {};
+    void terminate() override;
 
-    size_t getWorkspaceSize(int32_t maxBatchSize) const noexcept override;
+    size_t getWorkspaceSize(int maxBatchSize) const override;
 
-    int32_t enqueue(int32_t batchSize, const void* const* inputs, void* const* outputs, void* workspace,
-        cudaStream_t stream) noexcept override;
+    int enqueue(
+        int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
+    bool supportsFormat(DataType type, PluginFormat format) const override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    IPluginV2Ext* clone() const noexcept override;
+    IPluginV2Ext* clone() const override;
 
-    void setPluginNamespace(const char* pluginNamespace) noexcept override;
+    void setPluginNamespace(const char* pluginNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
-    DataType getOutputDataType(int32_t index, const nvinfer1::DataType* inputTypes, int32_t nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    bool isOutputBroadcastAcrossBatch(int32_t outputIndex, const bool* inputIsBroadcasted, int32_t nbInputs) const noexcept override;
+    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-    bool canBroadcastInputAcrossBatch(int32_t inputIndex) const noexcept override;
+    bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
     void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept override;
+        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
-    void configurePlugin(const Dims* inputDims, int32_t nbInputs, const Dims* outputDims, int32_t nbOutputs,
+    void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int32_t maxBatchSize) noexcept override;
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
 
-    void detachFromContext() noexcept override;
+    void detachFromContext() override;
 
 private:
-    void setupDeviceMemory() noexcept;
+    Weights copyToDevice(const void* hostData, size_t count);
+    void serializeFromDevice(char*& hostBuffer, Weights deviceWeights) const;
+    Weights deserializeToDevice(const char*& hostBuffer, size_t count);
 
     PriorBoxParameters mParam;
-    int32_t mNumPriors;
-    int32_t mH;
-    int32_t mW;
-    Weights minSize{};      // not learnable weights
-    Weights maxSize{};      // not learnable weights
-    Weights aspectRatios{}; // not learnable weights
+    bool mOwnsParamMemory;
+    int numPriors, H, W;
+    Weights minSize, maxSize, aspectRatios; // not learnable weights
     std::string mPluginNamespace;
 };
 
@@ -103,15 +105,15 @@ public:
 
     ~PriorBoxPluginCreator() override;
 
-    const char* getPluginName() const noexcept override;
+    const char* getPluginName() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    const PluginFieldCollection* getFieldNames() noexcept override;
+    const PluginFieldCollection* getFieldNames() override;
 
-    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
+    IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
 private:
     static PluginFieldCollection mFC;

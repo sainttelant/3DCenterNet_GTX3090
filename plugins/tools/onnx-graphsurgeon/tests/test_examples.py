@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import os
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 EXAMPLES_ROOT = os.path.join(ROOT_DIR, "examples")
 
-
 class Artifact(object):
     def __init__(self, name, infer=True):
         self.name = name
@@ -45,8 +44,6 @@ EXAMPLES = [
     ("05_folding_constants", [Artifact("model.onnx"), Artifact("folded.onnx")]),
     ("06_removing_nodes", [Artifact("model.onnx", infer=False), Artifact("removed.onnx")]),
     ("07_creating_a_model_with_the_layer_api", [Artifact("model.onnx")]),
-    ("08_replacing_a_subgraph", [Artifact("model.onnx"), Artifact("replaced.onnx")]),
-    ("09_shape_operations_with_the_layer_api", [Artifact("model.onnx")]),
 ]
 
 # Extract any ``` blocks from the README
@@ -55,7 +52,7 @@ def load_commands_from_readme(readme):
         return "pip" in cmd
 
     commands = []
-    with open(readme, "r") as f:
+    with open(readme, 'r') as f:
         in_command_block = False
         for line in f.readlines():
             if not in_command_block and "```bash" in line:
@@ -74,8 +71,7 @@ def infer_model(path):
 
     feed_dict = {}
     for tensor in graph.inputs:
-        shape = tuple(dim if dim > 0 else 1 for dim in tensor.shape)
-        feed_dict[tensor.name] = np.random.random_sample(size=shape).astype(tensor.dtype)
+        feed_dict[tensor.name] = np.random.random_sample(size=tensor.shape).astype(tensor.dtype)
 
     output_names = [out.name for out in graph.outputs]
 

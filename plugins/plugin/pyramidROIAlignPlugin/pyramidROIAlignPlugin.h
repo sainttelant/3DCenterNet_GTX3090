@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,51 +41,51 @@ public:
 
     ~PyramidROIAlign() override = default;
 
-    int getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-    int initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override;
+    void terminate() override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    size_t getWorkspaceSize(int) const noexcept override;
+    size_t getWorkspaceSize(int) const override;
 
-    int enqueue(int batch_size, const void* const* inputs, void* const* outputs, void* workspace,
-        cudaStream_t stream) noexcept override;
+    int enqueue(
+        int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
+    bool supportsFormat(DataType type, PluginFormat format) const override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    IPluginV2Ext* clone() const noexcept override;
+    IPluginV2Ext* clone() const override;
 
-    void setPluginNamespace(const char* libNamespace) noexcept override;
+    void setPluginNamespace(const char* libNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept override;
+    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override;
+    bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
     void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept override;
+        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override;
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
 
-    void detachFromContext() noexcept override;
+    void detachFromContext() override;
 
 private:
     void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
@@ -107,15 +107,15 @@ public:
 
     ~PyramidROIAlignPluginCreator(){};
 
-    const char* getPluginName() const noexcept override;
+    const char* getPluginName() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    const PluginFieldCollection* getFieldNames() noexcept override;
+    const PluginFieldCollection* getFieldNames() override;
 
-    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-    IPluginV2Ext* deserializePlugin(const char* name, const void* data, size_t length) noexcept override;
+    IPluginV2Ext* deserializePlugin(const char* name, const void* data, size_t length) override;
 
 private:
     static PluginFieldCollection mFC;

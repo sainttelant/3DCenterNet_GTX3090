@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import sys
 import re
 
-from typing import List, Text, Sequence, Any, Union
+from typing import List, Text, Sequence, Any
 import numpy as np  # type: ignore
 
 import onnx
@@ -101,19 +101,11 @@ def function_testcase_helper(node, name):  # type: (NodeProto, Text) -> List[Nod
     return node_list
 
 
-def _extract_value_info(input, name, ele_type=None):  # type: (Union[List[Any], np.ndarray], Text, np.dtype) -> onnx.ValueInfoProto
-    if isinstance(input, list):
-        # TODO: Account for recursive sequence case. Right now, this function supports
-        # Sequences of Tensors.
-        return onnx.helper.make_sequence_value_info(
-            name=name,
-            elem_type=ele_type if ele_type else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[input[0].dtype],
-            shape=None
-        )
+def _extract_value_info(arr, name):  # type: (np.ndarray, Text) -> onnx.ValueInfoProto
     return onnx.helper.make_tensor_value_info(
         name=name,
-        elem_type=ele_type if ele_type else onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[input.dtype],
-        shape=input.shape)
+        elem_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[arr.dtype],
+        shape=arr.shape)
 
 
 def expect(node,  # type: onnx.NodeProto
@@ -124,18 +116,10 @@ def expect(node,  # type: onnx.NodeProto
            ):  # type: (...) -> None
     present_inputs = [x for x in node.input if (x != '')]
     present_outputs = [x for x in node.output if (x != '')]
-    input_types = [None] * len(inputs)
-    if 'input_types' in kwargs:
-        input_types = kwargs[str('input_types')]
-        del kwargs[str('input_types')]
-    output_types = [None] * len(outputs)
-    if 'output_types' in kwargs:
-        output_types = kwargs[str('output_types')]
-        del kwargs[str('output_types')]
-    inputs_vi = [_extract_value_info(arr, arr_name, input_type)
-                 for arr, arr_name, input_type in zip(inputs, present_inputs, input_types)]
-    outputs_vi = [_extract_value_info(arr, arr_name, output_type)
-                  for arr, arr_name, output_type in zip(outputs, present_outputs, output_types)]
+    inputs_vi = [_extract_value_info(arr, arr_name)
+                 for arr, arr_name in zip(inputs, present_inputs)]
+    outputs_vi = [_extract_value_info(arr, arr_name)
+                  for arr, arr_name in zip(outputs, present_outputs)]
     graph = onnx.helper.make_graph(
         nodes=[node],
         name=name,

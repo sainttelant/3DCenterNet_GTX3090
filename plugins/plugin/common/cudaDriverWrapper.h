@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #ifndef CUDA_DRIVER_WRAPPER_H
 #define CUDA_DRIVER_WRAPPER_H
 
-#include <cstdint>
 #include <cstdio>
 #include <cuda.h>
 
@@ -35,10 +34,6 @@ public:
 
     ~CUDADriverWrapper();
 
-    // Delete default copy constructor and copy assignment constructor
-    CUDADriverWrapper(const CUDADriverWrapper&) = delete;
-    CUDADriverWrapper& operator=(const CUDADriverWrapper&) = delete;
-
     CUresult cuGetErrorName(CUresult error, const char** pStr) const;
 
     CUresult cuFuncSetAttribute(CUfunction hfunc, CUfunction_attribute attrib, int value) const;
@@ -51,23 +46,24 @@ public:
 
     CUresult cuModuleLoadData(CUmodule* module, const void* image) const;
 
-    CUresult cuLinkCreate(uint32_t numOptions, CUjit_option* options, void** optionValues, CUlinkState* stateOut) const;
+    CUresult cuLinkCreate(
+        unsigned int numOptions, CUjit_option* options, void** optionValues, CUlinkState* stateOut) const;
 
     CUresult cuModuleGetFunction(CUfunction* hfunc, CUmodule hmod, const char* name) const;
 
-    CUresult cuLinkAddFile(CUlinkState state, CUjitInputType type, const char* path, uint32_t numOptions,
+    CUresult cuLinkAddFile(CUlinkState state, CUjitInputType type, const char* path, unsigned int numOptions,
         CUjit_option* options, void** optionValues) const;
 
     CUresult cuLinkAddData(CUlinkState state, CUjitInputType type, void* data, size_t size, const char* name,
-        uint32_t numOptions, CUjit_option* options, void** optionValues) const;
+        unsigned int numOptions, CUjit_option* options, void** optionValues) const;
 
-    CUresult cuLaunchCooperativeKernel(CUfunction f, uint32_t gridDimX, uint32_t gridDimY, uint32_t gridDimZ,
-        uint32_t blockDimX, uint32_t blockDimY, uint32_t blockDimZ, uint32_t sharedMemBytes, CUstream hStream,
-        void** kernelParams) const;
+    CUresult cuLaunchCooperativeKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY,
+        unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
+        unsigned int sharedMemBytes, CUstream hStream, void** kernelParams) const;
 
-    CUresult cuLaunchKernel(CUfunction f, uint32_t gridDimX, uint32_t gridDimY, uint32_t gridDimZ, uint32_t blockDimX,
-        uint32_t blockDimY, uint32_t blockDimZ, uint32_t sharedMemBytes, CUstream hStream, void** kernelParams,
-        void** extra) const;
+    CUresult cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
+        unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ, unsigned int sharedMemBytes,
+        CUstream hStream, void** kernelParams, void** extra) const;
 
 private:
     void* handle;
@@ -84,9 +80,9 @@ private:
         CUlinkState, CUjitInputType, void*, size_t, const char*, unsigned int, CUjit_option*, void**);
     CUresult (*_cuLaunchCooperativeKernel)(CUfunction, unsigned int, unsigned int, unsigned int, unsigned int,
         unsigned int, unsigned int, unsigned int, CUstream, void**);
-    CUresult (*_cuLaunchKernel)(CUfunction f, uint32_t gridDimX, uint32_t gridDimY, uint32_t gridDimZ,
-        uint32_t blockDimX, uint32_t blockDimY, uint32_t blockDimZ, uint32_t sharedMemBytes, CUstream hStream,
-        void** kernelParams, void** extra);
+    CUresult (*_cuLaunchKernel)(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
+        unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ, unsigned int sharedMemBytes,
+        CUstream hStream, void** kernelParams, void** extra);
 };
 
 inline void cuErrCheck_(CUresult stat, const CUDADriverWrapper& wrap, const char* file, int line)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,5 @@
 function (set_ifndef variable value)
   if(NOT DEFINED ${variable})
     set(${variable} ${value} PARENT_SCOPE)
-    message(STATUS "")
   endif()
 endfunction()

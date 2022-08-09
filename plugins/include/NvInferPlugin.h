@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,14 @@
 
 extern "C"
 {
-    //!
-    //! \brief Initialize and register all the existing TensorRT plugins to the Plugin Registry with an optional
-    //! namespace. The plugin library author should ensure that this function name is unique to the library. This
-    //! function should be called once before accessing the Plugin Registry.
-    //! \param logger Logger object to print plugin registration information
-    //! \param libNamespace Namespace used to register all the plugins in this library
-    //!
-    TENSORRTAPI bool initLibNvInferPlugins(void* logger, const char* libNamespace);
+//!
+//! \brief Initialize and register all the existing TensorRT plugins to the Plugin Registry with an optional namespace.
+//! The plugin library author should ensure that this function name is unique to the library.
+//! This function should be called once before accessing the Plugin Registry.
+//! \param logger Logger object to print plugin registration information
+//! \param libNamespace Namespace used to register all the plugins in this library
+//!
+TENSORRTAPI bool initLibNvInferPlugins(void* logger, const char* libNamespace);
 
 } // extern "C"
 

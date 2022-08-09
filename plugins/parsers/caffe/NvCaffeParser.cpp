@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,17 @@
 
 using namespace nvcaffeparser1;
 
-void nvcaffeparser1::shutdownProtobufLibrary() noexcept
+void nvcaffeparser1::shutdownProtobufLibrary()
 {
     google::protobuf::ShutdownProtobufLibrary();
 }
 
-extern "C" void* createNvCaffeParser_INTERNAL() noexcept
+extern "C" void* createNvCaffeParser_INTERNAL()
 {
     return nvcaffeparser1::createCaffeParser();
 }
 
-ICaffeParser* nvcaffeparser1::createCaffeParser() noexcept
+ICaffeParser* nvcaffeparser1::createCaffeParser()
 {
     return new CaffeParser;
 }

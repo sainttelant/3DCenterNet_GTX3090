@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,41 +26,41 @@ namespace nvcaffeparser1
 class BinaryProtoBlob : public IBinaryProtoBlob
 {
 public:
-    BinaryProtoBlob(void* memory, nvinfer1::DataType type, nvinfer1::Dims4 dimensions)
+    BinaryProtoBlob(void* memory, nvinfer1::DataType type, nvinfer1::DimsNCHW dimensions)
         : mMemory(memory)
         , mDataType(type)
         , mDimensions(dimensions)
     {
     }
 
-    nvinfer1::Dims4 getDimensions() noexcept override
+    nvinfer1::DimsNCHW getDimensions() override
     {
         return mDimensions;
     }
 
-    nvinfer1::DataType getDataType() noexcept override
+    nvinfer1::DataType getDataType() override
     {
         return mDataType;
     }
 
-    const void* getData() noexcept override
+    const void* getData() override
     {
         return mMemory;
     }
 
-    void destroy() noexcept override
+    void destroy() override
     {
         delete this;
     }
 
-    ~BinaryProtoBlob() noexcept override
+    ~BinaryProtoBlob() override
     {
         free(mMemory);
     }
 
     void* mMemory;
     nvinfer1::DataType mDataType;
-    nvinfer1::Dims4 mDimensions;
+    nvinfer1::DimsNCHW mDimensions;
 };
 } // namespace nvcaffeparser1
 #endif // TRT_CAFFE_PARSER_BINARY_PROTO_BLOB_H

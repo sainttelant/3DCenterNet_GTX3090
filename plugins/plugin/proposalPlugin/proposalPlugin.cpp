@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,22 +24,19 @@
 
 using namespace nvinfer1;
 using nvinfer1::plugin::ProposalPlugin;
-using nvinfer1::plugin::ProposalDynamicPlugin;
-using nvinfer1::plugin::ProposalBasePluginCreator;
 using nvinfer1::plugin::ProposalPluginCreator;
-using nvinfer1::plugin::ProposalDynamicPluginCreator;
 
 // plugin specific constants
 namespace
 {
 static const char* PROPOSAL_PLUGIN_VERSION{"1"};
-static const char* PROPOSAL_PLUGIN_NAMES[] = {"Proposal", "ProposalDynamic"};
+static const char* PROPOSAL_PLUGIN_NAME{"Proposal"};
 static const float RPN_STD_SCALING{1.0f};
 } // namespace
 
 // Static class fields initialization
-PluginFieldCollection ProposalBasePluginCreator::mFC{};
-std::vector<PluginField> ProposalBasePluginCreator::mPluginAttributes;
+PluginFieldCollection ProposalPluginCreator::mFC{};
+std::vector<PluginField> ProposalPluginCreator::mPluginAttributes;
 
 // Helper function for serializing plugin
 template <typename T>
@@ -58,38 +55,16 @@ T readFromBuffer(const char*& buffer)
     return val;
 }
 
-ProposalPlugin::ProposalPlugin(int input_height, int input_width, int rpn_height, int rpn_width, float rpn_std_scaling,
-    int rpn_stride, float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n, int max_box_num,
-    const float* anchor_sizes, int anc_size_num, const float* anchor_ratios, int anc_ratio_num) noexcept
-    : mInputHeight(input_height)
-    , mInputWidth(input_width)
-    , mRpnHeight(rpn_height)
-    , mRpnWidth(rpn_width)
-    , mRpnStdScaling(rpn_std_scaling)
-    , mRpnStride(rpn_stride)
-    , mBboxMinSize(bbox_min_size)
-    , mNmsIouThreshold(nms_iou_threshold)
-    , mPreNmsTopN(pre_nms_top_n)
-    , mMaxBoxNum(max_box_num)
-    , mAnchorSizeNum(anc_size_num)
-    , mAnchorRatioNum(anc_ratio_num)
+ProposalPlugin::ProposalPlugin(const std::string name)
+    : mLayerName(name)
 {
-    for (int i = 0; i < anc_size_num; ++i)
-    {
-        mAnchorSizes.push_back(anchor_sizes[i]);
-    }
-
-    for (int i = 0; i < anc_ratio_num; ++i)
-    {
-        mAnchorRatios.push_back(anchor_ratios[i]);
-    }
 }
 
-ProposalDynamicPlugin::ProposalDynamicPlugin(int input_height, int input_width, int rpn_height, int rpn_width,
+ProposalPlugin::ProposalPlugin(const std::string name, int input_height, int input_width, int rpn_height, int rpn_width,
     float rpn_std_scaling, int rpn_stride, float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n,
-    int max_box_num, const float* anchor_sizes, int anc_size_num, const float* anchor_ratios,
-    int anc_ratio_num) noexcept
-    : mInputHeight(input_height)
+    int max_box_num, const float* anchor_sizes, int anc_size_num, const float* anchor_ratios, int anc_ratio_num)
+    : mLayerName(name)
+    , mInputHeight(input_height)
     , mInputWidth(input_width)
     , mRpnHeight(rpn_height)
     , mRpnWidth(rpn_width)
@@ -113,10 +88,11 @@ ProposalDynamicPlugin::ProposalDynamicPlugin(int input_height, int input_width, 
     }
 }
 
-ProposalPlugin::ProposalPlugin(int input_height, int input_width, float rpn_std_scaling, int rpn_stride,
-    float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n, int max_box_num, const float* anchor_sizes,
-    int anc_size_num, const float* anchor_ratios, int anc_ratio_num) noexcept
-    : mInputHeight(input_height)
+ProposalPlugin::ProposalPlugin(const std::string name, int input_height, int input_width, float rpn_std_scaling,
+    int rpn_stride, float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n, int max_box_num,
+    const float* anchor_sizes, int anc_size_num, const float* anchor_ratios, int anc_ratio_num)
+    : mLayerName(name)
+    , mInputHeight(input_height)
     , mInputWidth(input_width)
     , mRpnStdScaling(rpn_std_scaling)
     , mRpnStride(rpn_stride)
@@ -138,32 +114,8 @@ ProposalPlugin::ProposalPlugin(int input_height, int input_width, float rpn_std_
     }
 }
 
-ProposalDynamicPlugin::ProposalDynamicPlugin(int input_height, int input_width, float rpn_std_scaling, int rpn_stride,
-    float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n, int max_box_num, const float* anchor_sizes,
-    int anc_size_num, const float* anchor_ratios, int anc_ratio_num) noexcept
-    : mInputHeight(input_height)
-    , mInputWidth(input_width)
-    , mRpnStdScaling(rpn_std_scaling)
-    , mRpnStride(rpn_stride)
-    , mBboxMinSize(bbox_min_size)
-    , mNmsIouThreshold(nms_iou_threshold)
-    , mPreNmsTopN(pre_nms_top_n)
-    , mMaxBoxNum(max_box_num)
-    , mAnchorSizeNum(anc_size_num)
-    , mAnchorRatioNum(anc_ratio_num)
-{
-    for (int i = 0; i < anc_size_num; ++i)
-    {
-        mAnchorSizes.push_back(anchor_sizes[i]);
-    }
-
-    for (int i = 0; i < anc_ratio_num; ++i)
-    {
-        mAnchorRatios.push_back(anchor_ratios[i]);
-    }
-}
-
-ProposalPlugin::ProposalPlugin(const void* serial_buf, size_t serial_size) noexcept
+ProposalPlugin::ProposalPlugin(const std::string name, const void* serial_buf, size_t serial_size)
+    : mLayerName(name)
 {
     const char* d = reinterpret_cast<const char*>(serial_buf);
     const char* a = d;
@@ -193,71 +145,24 @@ ProposalPlugin::ProposalPlugin(const void* serial_buf, size_t serial_size) noexc
     ASSERT(a == d + serial_size);
 }
 
-ProposalDynamicPlugin::ProposalDynamicPlugin(const void* serial_buf, size_t serial_size) noexcept
+ProposalPlugin::~ProposalPlugin() {}
+
+const char* ProposalPlugin::getPluginType() const
 {
-    const char* d = reinterpret_cast<const char*>(serial_buf);
-    const char* a = d;
-    mInputHeight = readFromBuffer<size_t>(a);
-    mInputWidth = readFromBuffer<size_t>(a);
-    mRpnHeight = readFromBuffer<size_t>(a);
-    mRpnWidth = readFromBuffer<size_t>(a);
-    mRpnStride = readFromBuffer<size_t>(a);
-    mPreNmsTopN = readFromBuffer<size_t>(a);
-    mMaxBoxNum = readFromBuffer<size_t>(a);
-    mAnchorSizeNum = readFromBuffer<size_t>(a);
-    mAnchorRatioNum = readFromBuffer<size_t>(a);
-    mRpnStdScaling = readFromBuffer<float>(a);
-    mBboxMinSize = readFromBuffer<float>(a);
-    mNmsIouThreshold = readFromBuffer<float>(a);
-
-    for (size_t i = 0; i < mAnchorSizeNum; ++i)
-    {
-        mAnchorSizes.push_back(readFromBuffer<float>(a));
-    }
-
-    for (size_t i = 0; i < mAnchorRatioNum; ++i)
-    {
-        mAnchorRatios.push_back(readFromBuffer<float>(a));
-    }
-
-    ASSERT(a == d + serial_size);
+    return PROPOSAL_PLUGIN_NAME;
 }
 
-ProposalPlugin::~ProposalPlugin() noexcept {}
-
-ProposalDynamicPlugin::~ProposalDynamicPlugin() noexcept {}
-
-const char* ProposalPlugin::getPluginType() const noexcept
-{
-    return PROPOSAL_PLUGIN_NAMES[0];
-}
-
-const char* ProposalDynamicPlugin::getPluginType() const noexcept
-{
-    return PROPOSAL_PLUGIN_NAMES[1];
-}
-
-const char* ProposalPlugin::getPluginVersion() const noexcept
+const char* ProposalPlugin::getPluginVersion() const
 {
     return PROPOSAL_PLUGIN_VERSION;
 }
 
-const char* ProposalDynamicPlugin::getPluginVersion() const noexcept
-{
-    return PROPOSAL_PLUGIN_VERSION;
-}
-
-int ProposalPlugin::getNbOutputs() const noexcept
+int ProposalPlugin::getNbOutputs() const
 {
     return 1;
 }
 
-int ProposalDynamicPlugin::getNbOutputs() const noexcept
-{
-    return 1;
-}
-
-Dims ProposalPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
+Dims ProposalPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
     // Validate input arguments
     ASSERT(index == 0);
@@ -267,50 +172,21 @@ Dims ProposalPlugin::getOutputDimensions(int index, const Dims* inputs, int nbIn
     int channels = mMaxBoxNum;
     int height = 4;
     int width = 1;
-    return Dims3(channels, height, width);
+    return DimsCHW(channels, height, width);
 }
 
-DimsExprs ProposalDynamicPlugin::getOutputDimensions(
-    int outputIndex, const DimsExprs* inputs, int nbInputs, IExprBuilder& exprBuilder) noexcept
+int ProposalPlugin::initialize()
 {
-    // Validate input arguments
-    ASSERT(outputIndex == 0);
-    ASSERT(nbInputs == 2);
-    ASSERT(inputs[0].nbDims == 4);
-    ASSERT(inputs[1].nbDims == 4);
-    DimsExprs out_dim;
-    out_dim.nbDims = 4;
-    out_dim.d[0] = inputs[0].d[0];
-    out_dim.d[1] = exprBuilder.constant(mMaxBoxNum);
-    out_dim.d[2] = exprBuilder.constant(4);
-    out_dim.d[3] = exprBuilder.constant(1);
-    return out_dim;
+    return 0;
 }
 
-int ProposalPlugin::initialize() noexcept
-{
-    return STATUS_SUCCESS;
-}
-
-int ProposalDynamicPlugin::initialize() noexcept
-{
-    return STATUS_SUCCESS;
-}
-
-size_t ProposalPlugin::getWorkspaceSize(int max_batch_size) const noexcept
+size_t ProposalPlugin::getWorkspaceSize(int max_batch_size) const
 {
     return _get_workspace_size(max_batch_size, mAnchorSizeNum, mAnchorRatioNum, mRpnHeight, mRpnWidth, mMaxBoxNum);
 }
 
-size_t ProposalDynamicPlugin::getWorkspaceSize(
-    const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const noexcept
-{
-    int batch_size = inputs[0].dims.d[0];
-    return _get_workspace_size(batch_size, mAnchorSizeNum, mAnchorRatioNum, mRpnHeight, mRpnWidth, mMaxBoxNum);
-}
-
 int ProposalPlugin::enqueue(
-    int batchSize, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+    int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
     int status = -1;
     // Our plugin outputs only one tensor
@@ -318,35 +194,15 @@ int ProposalPlugin::enqueue(
     status = proposalInference_gpu(stream, inputs[0], inputs[1], batchSize, mInputHeight, mInputWidth, mRpnHeight,
         mRpnWidth, mMaxBoxNum, mPreNmsTopN, &mAnchorSizes[0], mAnchorSizeNum, &mAnchorRatios[0], mAnchorRatioNum,
         mRpnStdScaling, mRpnStride, mBboxMinSize, mNmsIouThreshold, workspace, output);
-    ASSERT(status == STATUS_SUCCESS);
     return status;
 }
 
-int ProposalDynamicPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
-{
-    int status = -1;
-    // Our plugin outputs only one tensor
-    void* output = outputs[0];
-    int batchSize = inputDesc[0].dims.d[0];
-    status = proposalInference_gpu(stream, inputs[0], inputs[1], batchSize, mInputHeight, mInputWidth, mRpnHeight,
-        mRpnWidth, mMaxBoxNum, mPreNmsTopN, &mAnchorSizes[0], mAnchorSizeNum, &mAnchorRatios[0], mAnchorRatioNum,
-        mRpnStdScaling, mRpnStride, mBboxMinSize, mNmsIouThreshold, workspace, output);
-    ASSERT(status == STATUS_SUCCESS);
-    return status;
-}
-
-size_t ProposalPlugin::getSerializationSize() const noexcept
+size_t ProposalPlugin::getSerializationSize() const
 {
     return sizeof(size_t) * 9 + sizeof(float) * 3 + sizeof(float) * mAnchorSizeNum + sizeof(float) * mAnchorRatioNum;
 }
 
-size_t ProposalDynamicPlugin::getSerializationSize() const noexcept
-{
-    return sizeof(size_t) * 9 + sizeof(float) * 3 + sizeof(float) * mAnchorSizeNum + sizeof(float) * mAnchorRatioNum;
-}
-
-void ProposalPlugin::serialize(void* buffer) const noexcept
+void ProposalPlugin::serialize(void* buffer) const
 {
     char* d = reinterpret_cast<char*>(buffer);
     char* a = d;
@@ -376,40 +232,10 @@ void ProposalPlugin::serialize(void* buffer) const noexcept
     ASSERT(a == d + getSerializationSize());
 }
 
-void ProposalDynamicPlugin::serialize(void* buffer) const noexcept
-{
-    char* d = reinterpret_cast<char*>(buffer);
-    char* a = d;
-    writeToBuffer<size_t>(a, mInputHeight);
-    writeToBuffer<size_t>(a, mInputWidth);
-    writeToBuffer<size_t>(a, mRpnHeight);
-    writeToBuffer<size_t>(a, mRpnWidth);
-    writeToBuffer<size_t>(a, mRpnStride);
-    writeToBuffer<size_t>(a, mPreNmsTopN);
-    writeToBuffer<size_t>(a, mMaxBoxNum);
-    writeToBuffer<size_t>(a, mAnchorSizeNum);
-    writeToBuffer<size_t>(a, mAnchorRatioNum);
-    writeToBuffer<float>(a, mRpnStdScaling);
-    writeToBuffer<float>(a, mBboxMinSize);
-    writeToBuffer<float>(a, mNmsIouThreshold);
-
-    for (size_t i = 0; i < mAnchorSizeNum; ++i)
-    {
-        writeToBuffer<float>(a, mAnchorSizes[i]);
-    }
-
-    for (size_t i = 0; i < mAnchorRatioNum; ++i)
-    {
-        writeToBuffer<float>(a, mAnchorRatios[i]);
-    }
-
-    ASSERT(a == d + getSerializationSize());
-}
-
-bool ProposalPlugin::supportsFormat(DataType type, PluginFormat format) const noexcept
+bool ProposalPlugin::supportsFormat(DataType type, PluginFormat format) const
 {
     // This plugin only supports ordinary floats, and NCHW input format
-    if (type == DataType::kFLOAT && format == PluginFormat::kLINEAR)
+    if (type == DataType::kFLOAT && format == PluginFormat::kNCHW)
     {
         return true;
     }
@@ -419,138 +245,77 @@ bool ProposalPlugin::supportsFormat(DataType type, PluginFormat format) const no
     }
 }
 
-bool ProposalDynamicPlugin::supportsFormatCombination(
-    int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
-{
-    // 2 inputs, 1 outputs, so 3 input/output in total
-    ASSERT(0 <= pos && pos < 3);
-    const auto* in = inOut;
-    const auto* out = inOut + nbInputs;
-    const bool consistentFloatPrecision = (in[0].type == in[pos].type);
-    switch (pos)
-    {
-    case 0: return in[0].type == DataType::kFLOAT && in[0].format == PluginFormat::kLINEAR && consistentFloatPrecision;
-    case 1: return in[1].type == DataType::kFLOAT && in[1].format == PluginFormat::kLINEAR && consistentFloatPrecision;
-    case 2:
-        return out[0].type == DataType::kFLOAT && out[0].format == PluginFormat::kLINEAR && consistentFloatPrecision;
-    }
-    return false;
-}
+void ProposalPlugin::terminate() {}
 
-void ProposalPlugin::terminate() noexcept {}
-
-void ProposalDynamicPlugin::terminate() noexcept {}
-
-void ProposalPlugin::destroy() noexcept
+void ProposalPlugin::destroy()
 {
     // This gets called when the network containing plugin is destroyed
     delete this;
 }
 
-void ProposalDynamicPlugin::destroy() noexcept
+IPluginV2Ext* ProposalPlugin::clone() const
 {
-    // This gets called when the network containing plugin is destroyed
-    delete this;
-}
-
-IPluginV2Ext* ProposalPlugin::clone() const noexcept
-{
-    IPluginV2Ext* plugin = new ProposalPlugin(mInputHeight, mInputWidth, mRpnHeight, mRpnWidth, mRpnStdScaling,
-        mRpnStride, mBboxMinSize, mNmsIouThreshold, mPreNmsTopN, mMaxBoxNum, &mAnchorSizes[0], mAnchorSizeNum,
-        &mAnchorRatios[0], mAnchorRatioNum);
+    IPluginV2Ext* plugin = new ProposalPlugin(mLayerName, mInputHeight, mInputWidth, mRpnHeight, mRpnWidth,
+        mRpnStdScaling, mRpnStride, mBboxMinSize, mNmsIouThreshold, mPreNmsTopN, mMaxBoxNum, &mAnchorSizes[0],
+        mAnchorSizeNum, &mAnchorRatios[0], mAnchorRatioNum);
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }
 
-IPluginV2DynamicExt* ProposalDynamicPlugin::clone() const noexcept
-{
-    auto* plugin = new ProposalDynamicPlugin(mInputHeight, mInputWidth, mRpnHeight, mRpnWidth, mRpnStdScaling,
-        mRpnStride, mBboxMinSize, mNmsIouThreshold, mPreNmsTopN, mMaxBoxNum, &mAnchorSizes[0], mAnchorSizeNum,
-        &mAnchorRatios[0], mAnchorRatioNum);
-    plugin->setPluginNamespace(mNamespace.c_str());
-    return plugin;
-}
-
-void ProposalPlugin::setPluginNamespace(const char* libNamespace) noexcept
+void ProposalPlugin::setPluginNamespace(const char* libNamespace)
 {
     mNamespace = libNamespace;
 }
 
-void ProposalDynamicPlugin::setPluginNamespace(const char* libNamespace) noexcept
-{
-    mNamespace = libNamespace;
-}
-
-const char* ProposalPlugin::getPluginNamespace() const noexcept
-{
-    return mNamespace.c_str();
-}
-
-const char* ProposalDynamicPlugin::getPluginNamespace() const noexcept
+const char* ProposalPlugin::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }
 
 // Return the DataType of the plugin output at the requested index.
-DataType ProposalPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
+DataType ProposalPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // one outputs
     ASSERT(index == 0);
     return DataType::kFLOAT;
 }
-
-DataType ProposalDynamicPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
-    noexcept
-{
-    // one outputs
-    ASSERT(index == 0);
-    return DataType::kFLOAT;
-}
-
 // Return true if output tensor is broadcast across a batch.
 bool ProposalPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
-    noexcept
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool ProposalPlugin::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
+bool ProposalPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
 
 void ProposalPlugin::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
+    ASSERT(
+        inputTypes[0] == DataType::kFLOAT && inputTypes[1] == DataType::kFLOAT && floatFormat == PluginFormat::kNCHW);
+
     ASSERT(nbInputs == 2);
     ASSERT(nbOutputs == 1);
+
     mRpnHeight = inputDims->d[1];
     mRpnWidth = inputDims->d[2];
 }
 
-void ProposalDynamicPlugin::configurePlugin(
-    const DynamicPluginTensorDesc* in, int nbInputs, const DynamicPluginTensorDesc* out, int nbOutputs) noexcept
-{
-    ASSERT(nbInputs == 2);
-    ASSERT(nbOutputs == 1);
-    mRpnHeight = in[0].desc.dims.d[2];
-    mRpnWidth = in[0].desc.dims.d[3];
-}
-
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void ProposalPlugin::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void ProposalPlugin::detachFromContext() noexcept {}
+void ProposalPlugin::detachFromContext() {}
 
-ProposalBasePluginCreator::ProposalBasePluginCreator() noexcept
+ProposalPluginCreator::ProposalPluginCreator()
 {
-    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("input_height", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("input_width", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("rpn_stride", nullptr, PluginFieldType::kINT32, 1));
@@ -564,32 +329,24 @@ ProposalBasePluginCreator::ProposalBasePluginCreator() noexcept
     mFC.fields = mPluginAttributes.data();
 }
 
-ProposalPluginCreator::ProposalPluginCreator() noexcept
+ProposalPluginCreator::~ProposalPluginCreator() {}
+
+const char* ProposalPluginCreator::getPluginName() const
 {
-    mPluginName = PROPOSAL_PLUGIN_NAMES[0];
+    return PROPOSAL_PLUGIN_NAME;
 }
 
-ProposalDynamicPluginCreator::ProposalDynamicPluginCreator() noexcept
-{
-    mPluginName = PROPOSAL_PLUGIN_NAMES[1];
-}
-
-const char* ProposalBasePluginCreator::getPluginName() const noexcept
-{
-    return mPluginName.c_str();
-}
-
-const char* ProposalBasePluginCreator::getPluginVersion() const noexcept
+const char* ProposalPluginCreator::getPluginVersion() const
 {
     return PROPOSAL_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* ProposalBasePluginCreator::getFieldNames() noexcept
+const PluginFieldCollection* ProposalPluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2Ext* ProposalPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* ProposalPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     const PluginField* fields = fc->fields;
     int nbFields = fc->nbFields;
@@ -667,113 +424,17 @@ IPluginV2Ext* ProposalPluginCreator::createPlugin(const char* name, const Plugin
     ASSERT(input_height > 0 && input_width > 0 && rpn_stride > 0 && pre_nms_top_n > 0 && post_nms_top_n
         && roi_min_size >= 0.0f && nms_iou_threshold > 0.0f);
 
-    IPluginV2Ext* plugin = new ProposalPlugin(input_height, input_width, RPN_STD_SCALING, rpn_stride, roi_min_size,
-        nms_iou_threshold, pre_nms_top_n, post_nms_top_n, &anchor_sizes[0], anchor_sizes.size(), &anchor_ratios[0],
-        anchor_ratios.size());
-    plugin->setPluginNamespace(mNamespace.c_str());
-    return plugin;
-}
-
-IPluginV2DynamicExt* ProposalDynamicPluginCreator::createPlugin(
-    const char* name, const PluginFieldCollection* fc) noexcept
-{
-    const PluginField* fields = fc->fields;
-    int nbFields = fc->nbFields;
-    int input_height = 0, input_width = 0, rpn_stride = 0, pre_nms_top_n = 0, post_nms_top_n = 0;
-    float roi_min_size = 0.0f, nms_iou_threshold = 0.0f;
-    std::vector<float> anchor_sizes;
-    std::vector<float> anchor_ratios;
-
-    for (int i = 0; i < nbFields; ++i)
-    {
-        const char* attr_name = fields[i].name;
-
-        if (!strcmp(attr_name, "input_height"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kINT32);
-            input_height = *(static_cast<const int*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "input_width"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kINT32);
-            input_width = *(static_cast<const int*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "rpn_stride"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kINT32);
-            rpn_stride = *(static_cast<const int*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "roi_min_size"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
-            roi_min_size = *(static_cast<const float*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "nms_iou_threshold"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
-            nms_iou_threshold = *(static_cast<const float*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "pre_nms_top_n"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kINT32);
-            pre_nms_top_n = *(static_cast<const int*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "post_nms_top_n"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kINT32);
-            post_nms_top_n = *(static_cast<const int*>(fields[i].data));
-        }
-        else if (!strcmp(attr_name, "anchor_sizes"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
-            const float* as = static_cast<const float*>(fields[i].data);
-
-            for (int j = 0; j < fields[i].length; ++j)
-            {
-                ASSERT(*as > 0.0f);
-                anchor_sizes.push_back(*as);
-                ++as;
-            }
-        }
-        else if (!strcmp(attr_name, "anchor_ratios"))
-        {
-            ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
-            const float* ar = static_cast<const float*>(fields[i].data);
-
-            // take the square root.
-            for (int j = 0; j < fields[i].length; ++j)
-            {
-                ASSERT(*ar > 0.0f);
-                anchor_ratios.push_back(std::sqrt(*ar));
-                ++ar;
-            }
-        }
-    }
-
-    ASSERT(input_height > 0 && input_width > 0 && rpn_stride > 0 && pre_nms_top_n > 0 && post_nms_top_n
-        && roi_min_size >= 0.0f && nms_iou_threshold > 0.0f);
-
-    IPluginV2DynamicExt* plugin = new ProposalDynamicPlugin(input_height, input_width, RPN_STD_SCALING, rpn_stride,
+    IPluginV2Ext* plugin = new ProposalPlugin(name, input_height, input_width, RPN_STD_SCALING, rpn_stride,
         roi_min_size, nms_iou_threshold, pre_nms_top_n, post_nms_top_n, &anchor_sizes[0], anchor_sizes.size(),
         &anchor_ratios[0], anchor_ratios.size());
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }
 
-IPluginV2Ext* ProposalPluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2Ext* ProposalPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     // This object will be deleted when the network is destroyed,
-    IPluginV2Ext* plugin = new ProposalPlugin(serialData, serialLength);
-    plugin->setPluginNamespace(mNamespace.c_str());
-    return plugin;
-}
-
-IPluginV2DynamicExt* ProposalDynamicPluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
-{
-    // This object will be deleted when the network is destroyed,
-    IPluginV2DynamicExt* plugin = new ProposalDynamicPlugin(serialData, serialLength);
+    IPluginV2Ext* plugin = new ProposalPlugin(name, serialData, serialLength);
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }

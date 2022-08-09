@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// Need 10.1 for cublasGemmStridedBatchedEx
+#include <cuda.h>
+#if CUDA_VERSION >= 10010
 
 #include "NvInfer.h"
 #include "bertCommon.h"
@@ -23,10 +26,10 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
-#include <tuple>
 #include <vector>
+#include <tuple>
 
-#include "fused_multihead_attention_v2.h"
+#include <fused_multihead_attention.h>
 using namespace nvinfer1;
 
 namespace bert
@@ -57,7 +60,6 @@ __global__ void maskedSoftmax(const float rsqrtHeadSize, const T* input, T* outp
     float local[VPT];
 
     __shared__ float rZ;
-    __shared__ float fMax[VPT];
 
     const int idx = (blockOffset + threadIdx.x) * VPT;
     T* myshm = &tmp.shm[threadIdx.x * VPT];
@@ -68,31 +70,15 @@ __global__ void maskedSoftmax(const float rsqrtHeadSize, const T* input, T* outp
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        local[it] = (threadIdx.x < lastValid) ? float(tmp.shm[it * TPB + threadIdx.x]) : -FLT_MAX;
+        local[it]
+            = (threadIdx.x < lastValid) ? myExp<float>((rsqrtHeadSize) * float(tmp.shm[it * TPB + threadIdx.x])) : 0.f;
     }
     __syncthreads();
 
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        float maxElem = BlockReduce(tmp.reduce).Reduce(local[it], cub::Max());
-        if (threadIdx.x == 0)
-        {
-            fMax[it] = maxElem;
-        }
-        __syncthreads();
-    }
 
-#pragma unroll
-    for (int it = 0; it < VPT; it++)
-    {
-        local[it] = (threadIdx.x < lastValid) ? myExp<float>(rsqrtHeadSize * (local[it] - fMax[it])) : 0.f;
-    }
-    __syncthreads();
-
-#pragma unroll
-    for (int it = 0; it < VPT; it++)
-    {
         const auto Z = BlockReduce(tmp.reduce).Reduce(local[it], cub::Sum());
 
         if (threadIdx.x == 0)
@@ -128,7 +114,6 @@ __global__ void softmax(const float rsqrtHeadSize, const T* input, T* output)
     __shared__ SMem tmp;
 
     __shared__ float rZ;
-    __shared__ float fMax[VPT];
 
     const int idx = (TPB * blockIdx.x + threadIdx.x) * VPT;
     T* myshm = &tmp.shm[threadIdx.x * VPT];
@@ -139,25 +124,7 @@ __global__ void softmax(const float rsqrtHeadSize, const T* input, T* output)
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        local[it] = float(tmp.shm[it * TPB + threadIdx.x]);
-    }
-    __syncthreads();
-
-#pragma unroll
-    for (int it = 0; it < VPT; it++)
-    {
-        float maxElem = BlockReduce(tmp.reduce).Reduce(local[it], cub::Max());
-        if (threadIdx.x == 0)
-        {
-            fMax[it] = maxElem;
-        }
-        __syncthreads();
-    }
-
-#pragma unroll
-    for (int it = 0; it < VPT; it++)
-    {
-        local[it] = myExp<float>(rsqrtHeadSize * (local[it] - fMax[it]));
+        local[it] = myExp<float>(rsqrtHeadSize * float(tmp.shm[it * TPB + threadIdx.x]));
     }
     __syncthreads();
 
@@ -333,8 +300,7 @@ int computeMaskedScaledSoftmax(cudaStream_t stream, const int ld, const int B, c
     return 0;
 }
 
-std::pair<int, int> tuneBatchedGemm(
-    const int B, const int S, const int numHeads, const int headSize, const int smVersion)
+std::pair<int, int> tuneBatchedGemm(const int B, const int S, const int numHeads, const int headSize)
 {
     const int nruns = 500;
     cublasHandle_t cublas;
@@ -379,8 +345,6 @@ std::pair<int, int> tuneBatchedGemm(
     int best2 = startAlgo;
     float ms1 = 1000000;
     float ms2 = 1000000;
-
-    ASSERT(smVersion >= kSM_53);
     for (int a = startAlgo; a <= endAlgo; a++)
     {
         cublasGemmAlgo_t algo = static_cast<cublasGemmAlgo_t>(a);
@@ -442,12 +406,12 @@ template int computeMaskedScaledSoftmax<float>(cudaStream_t stream, const int ld
 template int computeMaskedScaledSoftmax<half>(cudaStream_t stream, const int ld, const int B, const int N,
     const float rsqrtHeadSize, const int* maskIdx, const half* input, half* output);
 
-size_t MHARunner::getSerializationSize() const noexcept
+size_t MHARunner::getSerializationSize() const
 {
     return sizeof(mS) + sizeof(mB);
 }
 
-void MHARunner::serialize(void* buffer) const noexcept
+void MHARunner::serialize(void* buffer) const
 {
     serialize_value(&buffer, mS);
     serialize_value(&buffer, mB);
@@ -460,12 +424,10 @@ void MHARunner::deserialize(const void* data, size_t length)
     setup(mS, mB);
 }
 
-UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numHeads, const int headSize, const int sm)
+UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numHeads, const int headSize)
     : MHARunner(type, numHeads, headSize)
-    , mIsBestAlgoFound(false)
     , mAlgoBatchedEx1(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
     , mAlgoBatchedEx2(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
-    , mSm(sm)
 {
     CUBLASASSERT(cublasCreate(&mCublas));
 }
@@ -475,12 +437,12 @@ UnfusedMHARunner::~UnfusedMHARunner()
     CUBLASASSERT(cublasDestroy(mCublas));
 }
 
-size_t UnfusedMHARunner::getSerializationSize() const noexcept
+size_t UnfusedMHARunner::getSerializationSize() const
 {
     return sizeof(mAlgoBatchedEx1) + sizeof(mAlgoBatchedEx2) + MHARunner::getSerializationSize();
 }
 
-void UnfusedMHARunner::serialize(void* buffer) const noexcept
+void UnfusedMHARunner::serialize(void* buffer) const
 {
     serialize_value(&buffer, mAlgoBatchedEx1);
     serialize_value(&buffer, mAlgoBatchedEx2);
@@ -489,7 +451,6 @@ void UnfusedMHARunner::serialize(void* buffer) const noexcept
 
 void UnfusedMHARunner::deserialize(const void* data, size_t length)
 {
-    mIsBestAlgoFound = true;
     deserialize_value(&data, &length, &mAlgoBatchedEx1);
     deserialize_value(&data, &length, &mAlgoBatchedEx2);
     MHARunner::deserialize(data, length);
@@ -498,25 +459,18 @@ void UnfusedMHARunner::deserialize(const void* data, size_t length)
 void UnfusedMHARunner::setup(const int S, const int B)
 {
     MHARunner::setup(S, B);
-    if (mType == DataType::kHALF && !mIsBestAlgoFound)
+    if (mType == DataType::kHALF)
     {
-        std::tie(mAlgoBatchedEx1, mAlgoBatchedEx2) = tuneBatchedGemm(B, S, mNumHeads, mHeadSize, mSm);
-        mIsBestAlgoFound = true;
+        std::tie(mAlgoBatchedEx1, mAlgoBatchedEx2) = tuneBatchedGemm(B, S, mNumHeads, mHeadSize);
 
-        BERT_DEBUG_VALUE("QKV Plugin - Selected Algo 1 for batch gemms: ", mAlgoBatchedEx1);
-        BERT_DEBUG_VALUE("QKV Plugin - Selected Algo 2 for batch gemms: ", mAlgoBatchedEx2);
+        gLogVerbose << "QKV Plugin - Selected Algos for batch gemms: " << mAlgoBatchedEx1 << ", " << mAlgoBatchedEx2
+            << "\n";
     }
 }
 
 size_t UnfusedMHARunner::getWorkspaceSize() const
 {
     return 2UL * mWordSize * mOmatSize * mNumMats;
-}
-
-void UnfusedMHARunner::run(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream)
-{
-    this->run(inputDesc[0], outputDesc[0], inputs[0], inputs[1], outputs[0], workspace, stream);
 }
 
 void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -587,7 +541,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
     }
 }
 
-bool UnfusedMHARunner::isValid(int s) const
+bool UnfusedMHARunner::isValid() const
 {
     return mType != DataType::kINT8;
 }
@@ -620,8 +574,9 @@ public:
     mhaImpl(FusedMHARunnerFP16* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(getXMMAKernels(DATA_TYPE_FP16, sm))
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_FP16, sm))
     {
+        memset(&params, 0, sizeof(params));
     }
 
     ~mhaImpl() {}
@@ -640,7 +595,7 @@ public:
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
         size_t warps_m, warps_n, warps_k = 1;
-        if (S == 64 || S == 96 || S == 128)
+        if (S == 128)
         {
             warps_m = 2;
             warps_n = 2;
@@ -689,14 +644,14 @@ public:
 
         params.o_ptr = output;
 
-        xmmaKernel->run(params, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
 
         CHECK(cudaPeekAtLastError());
     }
 
-    bool isValid(int s) const
+    bool isValid() const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid();
     }
 
 private:
@@ -739,15 +694,9 @@ void FusedMHARunnerFP16::run(const PluginTensorDesc& inputDesc, const PluginTens
     pimpl->run(inputDesc, outputDesc, qkvPtr, maskPtr, output, workspace, stream);
 }
 
-void FusedMHARunnerFP16::run(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream)
+bool FusedMHARunnerFP16::isValid() const
 {
-    assert(false && "not implemented");
-}
-
-bool FusedMHARunnerFP16::isValid(int s) const
-{
-    return pimpl->isValid(s);
+    return pimpl->isValid();
 }
 
 // Int8 starts here: TODO refactor the duplicate stuff
@@ -759,9 +708,11 @@ public:
     mhaImpl(FusedMHARunnerInt8* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(getXMMAKernels(DATA_TYPE_INT8, sm))
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
     {
+        memset(&params, 0, sizeof(params));
+
     }
 
     ~mhaImpl() {}
@@ -832,16 +783,18 @@ public:
 
         params.o_ptr = output;
 
-        xmmaKernel->run(params, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
         CHECK(cudaPeekAtLastError());
+
     }
 
-    bool isValid(int s) const
+    bool isValid() const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid();
     }
 
 private:
+
     float mDqProbs;
     FusedMHARunnerInt8* interface;
     Fused_multihead_attention_params params;
@@ -880,326 +833,14 @@ void FusedMHARunnerInt8::deserialize(const void* data, size_t length)
 void FusedMHARunnerInt8::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
     const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
 {
-    pimpl->run(inputDesc, outputDesc, qkvPtr, maskPtr, output, workspace, stream);
+    pimpl->run(inputDesc, outputDesc,qkvPtr, maskPtr, output, workspace, stream);
 }
 
-void FusedMHARunnerInt8::run(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream)
+bool FusedMHARunnerInt8::isValid() const
 {
-    assert(false && "not implemented");
-}
-
-bool FusedMHARunnerInt8::isValid(int s) const
-{
-    return pimpl->isValid(s);
-}
-
-class FusedMHARunnerFP16v2::mhaImpl
-{
-public:
-    mhaImpl(FusedMHARunnerFP16v2* interface)
-        : interface(interface)
-        , sm(interface->mSm)
-        , xmmaKernel(getXMMAKernelsV2(DATA_TYPE_FP16, sm))
-    {
-        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86) && "Unsupported architecture");
-        params.clear();
-    }
-
-    ~mhaImpl() {}
-
-    size_t getPackedMaskSizeInBytes() const
-    {
-        // check that we initialized
-        assert(xmmas_m > 0);
-        assert(threads_per_cta > 0);
-        assert(interface->mB > 0);
-        return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
-    }
-
-    void setup(const int S, const int B)
-    {
-        // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
-        // several places (also outside of this plugin)
-        size_t warps_m, warps_n, warps_k = 1;
-        if (S == 64 || S == 96 || S == 128)
-        {
-            warps_m = 2;
-            warps_n = 2;
-        }
-        else if (S == 256 || S == 192)
-        {
-            warps_m = 1;
-            warps_n = 4;
-        }
-        else if (S == 384 || S == 512)
-        {
-            warps_m = 1;
-            warps_n = 8;
-        }
-
-        else
-        {
-            assert(false && "Unsupporte seqlen");
-        }
-        // The number of threads per CTA.
-        threads_per_cta = warps_m * warps_n * warps_k * 32;
-        // The number of xmmas in the M dimension. We use one uint32_t per XMMA in the M dimension.
-        xmmas_m = (S + 16 * warps_m - 1) / (16 * warps_m);
-        // The number of xmmas in the N dimension.
-        xmmas_n = (S + 16 * warps_n - 1) / (16 * warps_n);
-
-        const float scale_bmm1 = interface->mRsqrtHeadSize;
-        const float scale_softmax = 1.f; // Seems to be only required for int8
-        const float scale_bmm2 = 1.f;
-
-        Data_type scale_type = DATA_TYPE_FP16;
-        set_alpha(params.scale_bmm1, scale_bmm1, scale_type);
-        set_alpha(params.scale_softmax, scale_softmax, scale_type);
-        set_alpha(params.scale_bmm2, scale_bmm2, scale_type);
-
-        params.b = B;
-        params.h = interface->mNumHeads;
-        params.s = S;
-        params.d = interface->mHeadSize;
-
-        // mLdQKV = 3 * B * mNumHeads * mHeadSize;
-        // mLdOut = B * mNumHeads * mHeadSize;
-
-        params.qkv_stride_in_bytes = 3 * interface->mNumHeads * interface->mHeadSize * sizeof(half);
-        params.packed_mask_stride_in_bytes = xmmas_m * threads_per_cta * sizeof(uint32_t);
-        params.o_stride_in_bytes = interface->mNumHeads * interface->mHeadSize * sizeof(half);
-    }
-
-    void run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, const void* cuSeqlenPtr, void* output, void* workspace, cudaStream_t stream)
-    {
-
-        params.qkv_ptr = const_cast<void*>(qkvPtr);
-
-        // dummy input in V2/V3 because now we use cu_seqlens
-        params.packed_mask_ptr = nullptr;
-
-        params.o_ptr = output;
-
-        params.cu_seqlens = static_cast<int*>(const_cast<void*>(cuSeqlenPtr));
-        xmmaKernel->run(params, stream);
-        CHECK(cudaPeekAtLastError());
-    }
-
-    bool isValid(int s) const
-    {
-        return xmmaKernel->isValid(s);
-    }
-
-private:
-    FusedMHARunnerFP16v2* interface;
-    Fused_multihead_attention_params_v2 params;
-    int sm;
-    const FusedMultiHeadAttentionXMMAKernelV2* xmmaKernel;
-    size_t xmmas_m;
-    size_t xmmas_n;
-    size_t threads_per_cta;
-};
-
-FusedMHARunnerFP16v2::FusedMHARunnerFP16v2(const int numHeads, const int headSize, const int sm)
-    : MHARunner(DataType::kHALF, numHeads, headSize)
-    , mSm(sm)
-    , pimpl(new mhaImpl(this))
-{
-}
-
-void FusedMHARunnerFP16v2::setup(const int S, const int B)
-{
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
-}
-
-size_t FusedMHARunnerFP16v2::getWorkspaceSize() const
-{
-    return 0;
-}
-
-void FusedMHARunnerFP16v2::deserialize(const void* data, size_t length)
-{
-    MHARunner::deserialize(data, length);
-    setup(mS, mB);
-}
-
-void FusedMHARunnerFP16v2::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc,
-    const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
-{
-    assert(false && "not implemented");
-    // pimpl->run(inputDesc, outputDesc, qkvPtr, maskPtr, output, workspace, stream);
-}
-
-void FusedMHARunnerFP16v2::run(const nvinfer1::PluginTensorDesc* inputDesc,
-    const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace,
-    cudaStream_t stream)
-{
-    pimpl->run(inputDesc[0], outputDesc[0], inputs[0], inputs[1], inputs[2], outputs[0], workspace, stream);
-}
-
-bool FusedMHARunnerFP16v2::isValid(int s) const
-{
-    return pimpl->isValid(s);
-}
-
-// Int8 starts here: TODO refactor the duplicate stuff
-
-class FusedMHARunnerInt8v2::mhaImpl
-{
-
-public:
-    mhaImpl(FusedMHARunnerInt8v2* interface)
-        : interface(interface)
-        , sm(interface->mSm)
-        , xmmaKernel(getXMMAKernelsV2(DATA_TYPE_INT8, sm))
-        , mDqProbs(interface->mDqProbs)
-    {
-        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86) && "Unsupported architecture");
-        params.clear();
-    }
-
-    ~mhaImpl() {}
-
-    size_t getPackedMaskSizeInBytes() const
-    {
-        assert(xmmas_m > 0);
-        assert(threads_per_cta > 0);
-        assert(interface->mB > 0);
-        return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
-    }
-
-    void setup(const int S, const int B)
-    {
-        size_t warps_m, warps_n, warps_k = 1;
-        if (S == 128)
-        {
-            warps_m = 2;
-            warps_n = 2;
-        }
-        else if (S == 256 || S == 192)
-        {
-            warps_m = 1;
-            warps_n = 4;
-        }
-        else if (S == 384 || S == 512)
-        {
-            warps_m = 1;
-            warps_n = 8;
-        }
-
-        else
-        {
-            assert(false && "Unsupported seqlen.");
-        }
-        // The number of threads per CTA.
-        threads_per_cta = warps_m * warps_n * warps_k * 32;
-        // The number of xmmas in the M dimension. We use one uint32_t per XMMA in the M dimension.
-        xmmas_m = (S + 16 * warps_m - 1) / (16 * warps_m);
-        // The number of xmmas in the N dimension.
-        xmmas_n = (S + 16 * warps_n - 1) / (16 * warps_n);
-
-        params.b = B;
-        params.h = interface->mNumHeads;
-        params.s = S;
-        params.d = interface->mHeadSize;
-        params.use_int8_scale_max = true;
-        params.packed_mask_stride_in_bytes = xmmas_m * threads_per_cta * sizeof(uint32_t);
-        params.qkv_stride_in_bytes = 3 * interface->mNumHeads * interface->mHeadSize * sizeof(int8_t);
-        params.o_stride_in_bytes = interface->mNumHeads * interface->mHeadSize * sizeof(int8_t);
-    }
-
-    void run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, const void* cuSeqlenPtr, void* output, void* workspace, cudaStream_t stream)
-    {
-        float scaleQkv = inputDesc.scale;
-        float scaleCtx = outputDesc.scale;
-
-        float scaleBmm1 = scaleQkv * scaleQkv * interface->mRsqrtHeadSize;
-        float scaleBmm2 = mDqProbs * scaleQkv / scaleCtx;
-        float scaleSoftmax = 1.f / mDqProbs;
-
-        params.scale_bmm1 = reinterpret_cast<const uint32_t&>(scaleBmm1);
-        params.scale_bmm2 = reinterpret_cast<const uint32_t&>(scaleBmm2);
-        params.scale_softmax = reinterpret_cast<const uint32_t&>(scaleSoftmax);
-
-        params.enable_i2f_trick
-            = -double(1 << 22) * double(scaleBmm2) <= -128.f && double(1 << 22) * double(scaleBmm2) >= 127.f;
-
-        params.qkv_ptr = const_cast<void*>(qkvPtr);
-
-        // dummy input in V2/V3 because now we use cu_seqlens
-        params.packed_mask_ptr = nullptr;
-
-        params.use_int8_scale_max = true;
-
-        params.o_ptr = output;
-
-        params.cu_seqlens = static_cast<int*>(const_cast<void*>(cuSeqlenPtr));
-
-        xmmaKernel->run(params, stream);
-        CHECK(cudaPeekAtLastError());
-    }
-
-    bool isValid(int s) const
-    {
-        return xmmaKernel->isValid(s);
-    }
-
-private:
-    float mDqProbs;
-    FusedMHARunnerInt8v2* interface;
-    Fused_multihead_attention_params_v2 params;
-    int sm;
-    const FusedMultiHeadAttentionXMMAKernelV2* xmmaKernel;
-    size_t xmmas_m;
-    size_t xmmas_n;
-    size_t threads_per_cta;
-};
-
-FusedMHARunnerInt8v2::FusedMHARunnerInt8v2(const int numHeads, const int headSize, const int sm, const float dqProbs)
-    : MHARunner(DataType::kINT8, numHeads, headSize)
-    , mSm(sm)
-    , pimpl(new mhaImpl(this))
-    , mDqProbs(dqProbs)
-{
-}
-
-void FusedMHARunnerInt8v2::setup(const int S, const int B)
-{
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
-}
-
-size_t FusedMHARunnerInt8v2::getWorkspaceSize() const
-{
-    return 0;
-}
-
-void FusedMHARunnerInt8v2::deserialize(const void* data, size_t length)
-{
-    MHARunner::deserialize(data, length);
-    setup(mS, mB);
-}
-
-void FusedMHARunnerInt8v2::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc,
-    const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
-{
-    assert(false && "Not implemented");
-}
-
-void FusedMHARunnerInt8v2::run(const nvinfer1::PluginTensorDesc* inputDesc,
-    const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace,
-    cudaStream_t stream)
-{
-    pimpl->run(inputDesc[0], outputDesc[0], inputs[0], inputs[1], inputs[2], outputs[0], workspace, stream);
-}
-
-bool FusedMHARunnerInt8v2::isValid(int s) const
-{
-    return pimpl->isValid(s);
+    return pimpl->isValid();
 }
 
 } // namespace bert
+
+#endif // CUDA_VERSION >= 10010

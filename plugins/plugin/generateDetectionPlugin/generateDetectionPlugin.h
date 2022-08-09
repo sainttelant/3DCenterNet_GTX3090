@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #ifndef TRT_GENERATE_DETECTION_PLUGIN_H
 #define TRT_GENERATE_DETECTION_PLUGIN_H
 #include <cassert>
@@ -36,61 +35,60 @@ namespace plugin
 class GenerateDetection : public IPluginV2Ext
 {
 public:
-    GenerateDetection(
-        int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size) noexcept;
+    GenerateDetection(int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size);
 
-    GenerateDetection(const void* data, size_t length) noexcept;
+    GenerateDetection(const void* data, size_t length);
 
-    ~GenerateDetection() noexcept override = default;
+    ~GenerateDetection() override = default;
 
-    int getNbOutputs() const noexcept override;
+    int getNbOutputs() const override;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-    int initialize() noexcept override;
+    int initialize() override;
 
-    void terminate() noexcept override;
+    void terminate() override;
 
-    void destroy() noexcept override;
+    void destroy() override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const noexcept override;
+    size_t getWorkspaceSize(int maxBatchSize) const override;
 
-    int32_t enqueue(
-        int32_t batch_size, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
+    int enqueue(
+        int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-    size_t getSerializationSize() const noexcept override;
+    size_t getSerializationSize() const override;
 
-    void serialize(void* buffer) const noexcept override;
+    void serialize(void* buffer) const override;
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
+    bool supportsFormat(DataType type, PluginFormat format) const override;
 
-    const char* getPluginType() const noexcept override;
+    const char* getPluginType() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    IPluginV2Ext* clone() const noexcept override;
+    IPluginV2Ext* clone() const override;
 
-    void setPluginNamespace(const char* libNamespace) noexcept override;
+    void setPluginNamespace(const char* libNamespace) override;
 
-    const char* getPluginNamespace() const noexcept override;
+    const char* getPluginNamespace() const override;
 
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept override;
+    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept override;
+    bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override;
+    bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
     void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept override;
+        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override;
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
 
-    void detachFromContext() noexcept override;
+    void detachFromContext() override;
 
 private:
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept;
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
 
     int mBackgroundLabel;
     int mNbClasses;
@@ -113,19 +111,19 @@ private:
 class GenerateDetectionPluginCreator : public BaseCreator
 {
 public:
-    GenerateDetectionPluginCreator() noexcept;
+    GenerateDetectionPluginCreator();
 
-    ~GenerateDetectionPluginCreator() noexcept {};
+    ~GenerateDetectionPluginCreator(){};
 
-    const char* getPluginName() const noexcept override;
+    const char* getPluginName() const override;
 
-    const char* getPluginVersion() const noexcept override;
+    const char* getPluginVersion() const override;
 
-    const PluginFieldCollection* getFieldNames() noexcept override;
+    const PluginFieldCollection* getFieldNames() override;
 
-    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-    IPluginV2Ext* deserializePlugin(const char* name, const void* data, size_t length) noexcept override;
+    IPluginV2Ext* deserializePlugin(const char* name, const void* data, size_t length) override;
 
 private:
     static PluginFieldCollection mFC;

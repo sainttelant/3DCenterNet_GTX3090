@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <cstring>
-#include <vector>
 #include <cassert>
+#include <cstring>
 #include <type_traits>
+#include <vector>
 
 #include <iostream>
 using std::cerr;
@@ -43,7 +43,7 @@ template <typename T>
 struct Serializer<T,
     typename std::enable_if<std::is_arithmetic<T>::value || std::is_enum<T>::value || std::is_pod<T>::value>::type>
 {
-    static size_t serialized_size(T const&)
+    static size_t serialized_size(T const& value)
     {
         return sizeof(T);
     }

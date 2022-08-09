@@ -1,22 +1,12 @@
-<!--- SPDX-License-Identifier: Apache-2.0 -->
-
-# TensorRT Backend For ONNX
+# TensorRT backend for ONNX
 
 Parses ONNX models for execution with [TensorRT](https://developer.nvidia.com/tensorrt).
 
 See also the [TensorRT documentation](https://docs.nvidia.com/deeplearning/sdk/#inference).
 
-For the list of recent changes, see the [changelog](docs/Changelog.md).
-
-For a list of commonly seen issues and questions, see the [FAQ](docs/faq.md).
-
-For business inquiries, please contact researchinquiries@nvidia.com
-
-For press and other inquiries, please contact Hector Marinez at hmarinez@nvidia.com
-
 ## Supported TensorRT Versions
 
-Development on the Master branch is for the latest version of [TensorRT 8.2.1.8](https://developer.nvidia.com/nvidia-tensorrt-download) with full-dimensions and dynamic shape support.
+Development on the Master branch is for the latest version of [TensorRT 7.1](https://developer.nvidia.com/nvidia-tensorrt-download) with full-dimensions and dynamic shape support.
 
 For previous versions of TensorRT, refer to their respective branches.
 
@@ -41,21 +31,21 @@ For examples of usage of these APIs see:
 
 ## Supported Operators
 
-Current supported ONNX operators are found in the [operator support matrix](docs/operators.md).
+Current supported ONNX operators are found in the [operator support matrix](operators.md).
 
 # Installation
 
 ### Dependencies
 
- - [Protobuf >= 3.0.x](https://github.com/google/protobuf/releases)
- - [TensorRT 8.2.1.8](https://developer.nvidia.com/tensorrt)
- - [TensorRT 8.2.1.8 open source libaries (master branch)](https://github.com/NVIDIA/TensorRT/)
+ - [Protobuf >= 3.8.x](https://github.com/google/protobuf/releases)
+ - [TensorRT 7.1](https://developer.nvidia.com/tensorrt)
+ - [TensorRT 7.1 open source libaries (master branch)](https://github.com/NVIDIA/TensorRT/)
 
 ### Building
 
-For building within docker, we recommend using and setting up the docker containers as instructed in the main (TensorRT repository)[https://github.com/NVIDIA/TensorRT#setting-up-the-build-environment] to build the onnx-tensorrt library.
+For building on master, we recommend following the instructions on the [master branch of TensorRT](https://github.com/NVIDIA/TensorRT/) to take advatange of the latest plugin code required for importing certain operators.
 
-Once you have cloned the repository, you can build the parser libraries and executables by running:
+To build only the ONNX-TensorRT parser, follow the following steps:
 
     cd onnx-tensorrt
     mkdir build && cd build
@@ -63,14 +53,7 @@ Once you have cloned the repository, you can build the parser libraries and exec
     // Ensure that you update your LD_LIBRARY_PATH to pick up the location of the newly built library:
     export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
 
-Note that this project has a dependency on CUDA. By default the build will look in `/usr/local/cuda` for the CUDA toolkit installation. If your CUDA path is different, overwrite the default path by providing `-DCUDA_TOOLKIT_ROOT_DIR=<path_to_cuda_install>` in the CMake command.
-
 For building only the libraries, append `-DBUILD_LIBRARY_ONLY=1` to the CMake build command.
-
-### Experimental Ops
-All experimental operators will be considered unsupported by the ONNX-TRT's `supportsModel()` function.
-
-`NonMaxSuppression` is available as an experimental operator in TensorRT 8. It has the limitation that the output shape is always padded to length [`max_output_boxes_per_class`, 3], therefore some post processing is required to extract the valid indices.
 
 ## Executable Usage
 
@@ -95,21 +78,16 @@ See more usage information by running:
 
     onnx2trt -h
 
-### Python Modules
-
+### Python modules
 Python bindings for the ONNX-TensorRT parser are packaged in the shipped `.whl` files. Install them with
 
-    python3 -m pip install <tensorrt_install_dir>/python/tensorrt-8.x.x.x-cp<python_ver>-none-linux_x86_64.whl
+    pip install <tensorrt_install_dir>/python/tensorrt-7.x.x.x-cp27-none-linux_x86_64.whl
 
-TensorRT 8.2.1.8 supports ONNX release 1.8.0. Install it with:
+TensorRT 7.1 supports ONNX release 1.6.0. Install it with:
 
-    python3 -m pip install onnx==1.8.0
+    pip install onnx==1.6.0
 
-The ONNX-TensorRT backend can be installed by running:
-
-    python3 setup.py install
-
-## ONNX-TensorRT Python Backend Usage
+## ONNX Python backend usage
 
 The TensorRT backend for ONNX can be used in Python as follows:
 
@@ -126,11 +104,31 @@ print(output_data)
 print(output_data.shape)
 ```
 
-## C++ Library Usage
+## C++ library usage
 
 The model parser library, libnvonnxparser.so, has its C++ API declared in this header:
 
     NvOnnxParser.h
+
+### Docker image
+
+#### Tar-Based TensorRT
+
+Build the onnx_tensorrt Docker image using tar-based TensorRT by running:
+
+    git clone --recurse-submodules https://github.com/onnx/onnx-tensorrt.git
+    cd onnx-tensorrt
+    cp /path/to/TensorRT-7.x.x.tar.gz .
+    docker build -f docker/onnx-tensorrt-tar.Dockerfile --tag=onnx-tensorrt:7.x.x .
+
+#### Deb-Based TensorRT
+
+Build the onnx_tensorrt Docker image using deb-based TensorRT by running:
+
+    git clone --recurse-submodules https://github.com/onnx/onnx-tensorrt.git
+    cd onnx-tensorrt
+    cp /path/to/nv-tensorrt-repo-ubuntu1x04-cudax.x-trt7.x.x.x-ga-yyyymmdd_1-1_amd64.deb .
+    docker build -f docker/onnx-tensorrt-deb.Dockerfile --tag=onnx-tensorrt:7.x.x.x .
 
 ### Tests
 
@@ -146,6 +144,6 @@ All tests:
 
 You can use `-v` flag to make output more verbose.
 
-## Pre-trained Models
+## Pre-trained models
 
 Pre-trained models in ONNX format can be found at the [ONNX Model Zoo](https://github.com/onnx/models)
