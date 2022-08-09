@@ -159,7 +159,7 @@ set(CUDA_LIBRARIES ${CUDART_LIB})
 ############################################################################################
 # CUDA targets
 
-set(GPU_ARCHS 86)  
+set(GPU_ARCHS 72)  
 if (DEFINED GPU_ARCHS)
   message(STATUS "GPU_ARCHS defined as ${GPU_ARCHS}. Generating CUDA code for SM ${GPU_ARCHS}")
   separate_arguments(GPU_ARCHS)
