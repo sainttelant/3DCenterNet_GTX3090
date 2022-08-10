@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "ctdetConfig.h"
 #include <sstream>
+#include "cuda.h"
 #define PI acos(-1)
 
 // calibration matrix

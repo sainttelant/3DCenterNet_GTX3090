@@ -8,7 +8,11 @@ SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
 
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 
+set(CUDA_ARCH64_PATH /usr/local/cuda-10.2/targets/aarch64-linux/include)
+message(STATUS "cuda aarch64 path is <<<<<<<<<<", ${CUDA_ARCH64_PATH})
+
 include_directories(../include
+                    ${CUDA_ARCH64_PATH}
                     ../onnx-tensorrt)
 
 add_executable(buildEngine buildEngine.cpp)

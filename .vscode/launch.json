@@ -8,12 +8,12 @@
             "name": "(gdb) 启动",
             "type": "cppdbg",
             "request": "launch",
-            //"program": "${workspaceFolder}/buildEngine",
-            "program":"${workspaceRoot}/runDet",
-            //"args": ["-i"," model/ddd_3dop.onnx", "-o", "model/ddd_3dop.engine"],
-            "args":["-e","model/ddd_3dop.engine", "-i","000292.png"],
+            "program": "${workspaceFolder}/buildEngine",
+            //"program":"${workspaceRoot}/runDet",
+            "args": ["-i"," model/ddd_3dop.onnx", "-o", "model/ddd_3dop.engine"],
+            //"args":["-e","model/ddd_3dop.engine", "-i","000292.png"],
             "stopAtEntry": false,
-            "cwd": "/home/xuewei/tensort-3D/",
+            "cwd": "/home/nvidia/workspace/xuewei/3Dtrack",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -29,7 +29,7 @@
                     "ignoreFailures": true
                 }
             ]
-            ,"preLaunchTask": "3Dbuild"
+            //,"preLaunchTask": "3Dbuild"
         }
 
     ]

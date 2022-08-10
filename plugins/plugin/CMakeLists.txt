@@ -96,6 +96,7 @@ add_library(${SHARED_TARGET} SHARED
     ${PLUGIN_SOURCES}
 )
 
+set(${CUB_ROOT_DIR} /home/nvidia/workspace/xuewei/3Dtrack/plugins/plugin/cub)
 target_include_directories(${SHARED_TARGET}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${CUB_ROOT_DIR}

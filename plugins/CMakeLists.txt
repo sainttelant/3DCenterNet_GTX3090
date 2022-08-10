@@ -98,8 +98,11 @@ if (BUILD_PLUGINS OR BUILD_PARSERS)
     include(third_party/zlib.cmake)
     include(third_party/protobuf.cmake)
 endif()
+
 if(NOT CUB_ROOT_DIR)
-    set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
+set(CUB_ROOT_DIR "/home/nvidia/workspace/xuewei/3Dtrack/plugins/plugin/cub")
+    message(STATUS "set cub root dir" ${CUB_ROOT_DIR})
+    #set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
 endif()
 
 ## find_package(CUDA) is broken for cross-compilation. Enable CUDA language instead.
@@ -109,6 +112,7 @@ endif()
 
 include_directories(
     ${CUDA_INCLUDE_DIRS}
+    ${CUB_ROOT_DIR}
     ${CUDNN_ROOT_DIR}/include
 )
 find_library(CUDNN_LIB cudnn HINTS

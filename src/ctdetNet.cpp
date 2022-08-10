@@ -85,20 +85,19 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.7 \n"<<std::endl;
 std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.8 \n"<<std::endl;  
         config->setProfileStream(*profileStream);
 
-        SampleUniquePtr<IHostMemory> plan{builder->buildSerializedNetwork(*network, *config)};
-        if (!plan)
-        {
-            std::cout<<"build failed!"<<std::endl;
-        }
-std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;  
+       
+       
+
+        
+    std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;  
         SampleUniquePtr<IRuntime> runtime{createInferRuntime(sample::gLogger.getTRTLogger())};
         if (!runtime)
         {
             std::cout<<"build failed!"<<std::endl;
         }
-
         mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-            runtime->deserializeCudaEngine(plan->data(), plan->size()), samplesCommon::InferDeleter());
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+
         if (!mEngine)
         {
             std::cout<<"build failed!"<<std::endl;
@@ -203,7 +202,7 @@ std::cout<<"wilson init ctdet begin<<<<<<<<<<<1.9 \n"<<std::endl;
      std::cout<<"wilson  constructNetwork<<<<<<<<<<<1 \n"<<std::endl;
      printf("mParams.onnxFileName:%s \n",mParams.onnxFileName.c_str());
      printf("mParams.dataDirs:%d \n",mParams.dataDirs.size());
-     std::string onnxpath = "/home/xuewei/tensort-3D/model/ddd_3dop.onnx";
+     std::string onnxpath = "model/ddd_3dop.onnx";
     //auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
         //static_cast<int>(sample::gLogger.getReportableSeverity()));
     auto parsed = parser->parseFromFile(onnxpath.c_str(),static_cast<int>(sample::gLogger.getReportableSeverity()));

@@ -388,7 +388,7 @@ struct InferDeleter
     template <typename T>
     void operator()(T* obj) const
     {
-        delete obj;
+       // delete obj;
     }
 };
 

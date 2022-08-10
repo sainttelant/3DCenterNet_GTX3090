@@ -104,7 +104,15 @@ Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_p
 git clone https://github.com/Qjizhi/TensorRT-CenterNet-3D.git
 cd TensorRT-CenterNet-3D
 mkdir build
-cd build && cmake .. && make
+
+cd build && cmake .. $ git clone -b release/7.1 https://github.com/NVIDIA/TensorRT.git
+$ cd TensorRT
+$ git submodule update --init --recursive
+$ mkdir -p build && cd build
+$ cmake .. -DGPU_ARCHS="53"  -DTRT_LIB_DIR=/usr/lib/aarch64-linux-gnu/ -DCMAKE_C_COMPILER=/usr/bin/gcc
+$ make -j$(nproc)
+
+
 cd ..
 ```
 - build the engie and do the  inference

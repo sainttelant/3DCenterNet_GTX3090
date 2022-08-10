@@ -7,6 +7,7 @@ find_package(CUDAToolkit REQUIRED)
 find_path(TENSORRT_INCLUDE_DIR NvInfer.h
         HINTS ${TENSORRT_ROOT} ${CUDA_TOOLKIT_ROOT_DIR}
         PATH_SUFFIXES include/)
+
 message(STATUS "Found TensorRT headers at ${TENSORRT_INCLUDE_DIR}")
 find_library(TENSORRT_LIBRARY_INFER nvinfer
         HINTS ${TENSORRT_ROOT} ${TENSORRT_BUILD} ${CUDA_TOOLKIT_ROOT_DIR}
@@ -31,7 +32,12 @@ SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast")
 list(APPEND CUDA_NVCC_FLAGS "-D_FORCE_INLINES -Xcompiler -fPIC")
 
+
+message(STATUS "cuda include path is <<<<<<<<<<", ${CUDA_INCLUDE_DIRS})
+
+
 include_directories(${CUDA_INCLUDE_DIRS}
+                    ${CUDA_ARCH64_PATH}
                     ${TENSORRT_INCLUDE_DIR}
                     ${OpenCV_INCLUDE_DIRS}
                     ../include
@@ -117,6 +123,7 @@ file(GLOB ALL_SRCS
     ../plugins/plugin/resizeNearestPlugin/*.cpp
     ../plugins/plugin/specialSlicePlugin/*.cpp
     ../plugins/plugin/instanceNormalizationPlugin/*.cpp
+    ../plugins/plugin/common/kernels/kernel.cpp
 
 
     ../plugins/plugin/DCNv2/*.cu
