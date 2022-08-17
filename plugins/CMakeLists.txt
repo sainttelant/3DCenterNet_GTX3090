@@ -85,7 +85,7 @@ set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations ${CMAKE_CXX_FLAGS} -DBUILD_SYS
 ############################################################################################
 # Cross-compilation settings
 
-set_ifndef(TRT_PLATFORM_ID "x86_64")
+set_ifndef(TRT_PLATFORM_ID "aarch64")
 message(STATUS "Targeting TRT Platform: ${TRT_PLATFORM_ID}")
 
 ############################################################################################
@@ -100,9 +100,9 @@ endif()
 ############################################################################################
 # Dependencies
 
-set(DEFAULT_CUDA_VERSION 11.3.1)
+set(DEFAULT_CUDA_VERSION 10.2)
 set(DEFAULT_CUDNN_VERSION 8.2)
-set(DEFAULT_PROTOBUF_VERSION 3.0.0)
+set(DEFAULT_PROTOBUF_VERSION 3.15.8)
 
 # Dependency Version Resolution
 set_ifndef(CUDA_VERSION ${DEFAULT_CUDA_VERSION})
@@ -159,7 +159,7 @@ set(CUDA_LIBRARIES ${CUDART_LIB})
 ############################################################################################
 # CUDA targets
 
-set(GPU_ARCHS 86)  
+set(GPU_ARCHS 72)  
 if (DEFINED GPU_ARCHS)
   message(STATUS "GPU_ARCHS defined as ${GPU_ARCHS}. Generating CUDA code for SM ${GPU_ARCHS}")
   separate_arguments(GPU_ARCHS)
