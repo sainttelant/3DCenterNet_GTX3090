@@ -71,7 +71,7 @@ set(PLUGIN_LISTS
     ../plugins/plugin/multilevelCropAndResizePlugin
     ../plugins/plugin/resizeNearestPlugin
     ../plugins/plugin/specialSlicePlugin
-    ../plugins/plugin/instanceNormalizationPlugin
+    #../plugins/plugin/instanceNormalizationPlugin
     )
 
     include_directories(../plugins/plugin/common 
@@ -116,7 +116,7 @@ file(GLOB ALL_SRCS
     ../plugins/plugin/multilevelCropAndResizePlugin/*.cpp
     ../plugins/plugin/resizeNearestPlugin/*.cpp
     ../plugins/plugin/specialSlicePlugin/*.cpp
-    ../plugins/plugin/instanceNormalizationPlugin/*.cpp
+    #../plugins/plugin/instanceNormalizationPlugin/*.cpp
 
 
     ../plugins/plugin/DCNv2/*.cu
@@ -146,7 +146,7 @@ file(GLOB ALL_SRCS
     ../plugins/plugin/multilevelCropAndResizePlugin/*.cu
     ../plugins/plugin/resizeNearestPlugin/*.cu
     ../plugins/plugin/specialSlicePlugin/*.cu
-    ../plugins/plugin/instanceNormalizationPlugin/*.cu
+    #../plugins/plugin/instanceNormalizationPlugin/*.cu
     ../plugins/plugin/common/*.cpp
     ../plugins/plugin/common/kernels/*.cu
     )

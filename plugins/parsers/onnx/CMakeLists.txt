@@ -65,11 +65,11 @@ endif(NOT MSVC)
 
 set(ONNX_ROOT ${PROJECT_SOURCE_DIR})
 
-#set(wilson_dir /home/xuewei/tensort-3D/onnx-tensorrt/third_party/onnx)
+#set(wilson_dir /home/nvidia/xuewei/3D/onnx-tensorrt/third_party/onnx)
 #include_directories(${wilson_dir})
 
 #message(STATUS "xuewei------Found wilson_dir at ${wilson_dir} \n")
-# include_directories(${PROJECT_SOURCE_DIR} )
+include_directories(${PROJECT_SOURCE_DIR} )
 
 # Read ONNX version
 file(READ "${PROJECT_SOURCE_DIR}/VERSION_NUMBER" ONNX_VERSION)

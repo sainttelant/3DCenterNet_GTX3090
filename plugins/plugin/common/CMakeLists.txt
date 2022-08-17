@@ -14,6 +14,16 @@
 # limitations under the License.
 #
 add_subdirectory(kernels)
+
+
+if(NOT CUB_ROOT_DIR)
+    set(CUB_ROOT_DIR /home/nvidia/xuewei/3D/plugins/plugin/cub)
+    message(STATUS "SET CUB_PATH" ${CUB_ROOT_DIR})
+    #set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
+endif()
+
+message(STATUS " CUB_PATH IS:" ${CUB_ROOT_DIR})
+include_directories(${CUB_ROOT_DIR})
 file(GLOB SRCS *.cpp)
 set(PLUGIN_SOURCES ${PLUGIN_SOURCES} ${SRCS})
 set(PLUGIN_SOURCES ${PLUGIN_SOURCES} PARENT_SCOPE)

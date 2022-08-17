@@ -103,6 +103,9 @@ endif()
 set(DEFAULT_CUDA_VERSION 10.2)
 set(DEFAULT_CUDNN_VERSION 8.2)
 set(DEFAULT_PROTOBUF_VERSION 3.15.8)
+set(DEFAULT_CUB_VERSION 1.8.0)
+
+
 
 # Dependency Version Resolution
 set_ifndef(CUDA_VERSION ${DEFAULT_CUDA_VERSION})
@@ -118,9 +121,9 @@ if (BUILD_PLUGINS OR BUILD_PARSERS)
     include(third_party/protobuf.cmake)
 endif()
 if(NOT CUB_ROOT_DIR)
-  if (CUDA_VERSION VERSION_LESS 11.0)
-    set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
-  endif()
+set(CUB_ROOT_DIR "/home/nvidia/xuewei/3D/plugins/plugin/cub")
+    message(STATUS "set cub root dir" ${CUB_ROOT_DIR})
+    #set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
 endif()
 
 ## find_package(CUDA) is broken for cross-compilation. Enable CUDA language instead.
@@ -134,6 +137,7 @@ message(STATUS "PARSE_INCLUDE===========" ${PARSE_INCLUDE})
 include_directories(
     ${CUDA_INCLUDE_DIRS}
     ${PARSE_INCLUDE}
+    ${CUB_ROOT_DIR}
     ${CUDNN_ROOT_DIR}/include
 
 )
@@ -221,5 +225,5 @@ else()
 endif()
 
 if(BUILD_SAMPLES)
-    add_subdirectory(samples)
+    #add_subdirectory(samples)
 endif()

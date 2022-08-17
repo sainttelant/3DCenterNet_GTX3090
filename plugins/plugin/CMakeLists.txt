@@ -57,7 +57,7 @@ set(PLUGIN_LISTS
     multilevelCropAndResizePlugin
     resizeNearestPlugin
     specialSlicePlugin
-    instanceNormalizationPlugin
+    #instanceNormalizationPlugin
     )
   unset(BERT_GENCODES)
 # Add BERT sources if ${BERT_GENCODES} was populated
@@ -105,6 +105,7 @@ add_library(${SHARED_TARGET} SHARED
     ${PLUGIN_SOURCES}
 )
 
+set(${CUB_ROOT_DIR} /home/nvidia/xuewei/3D/plugins/plugin/cub)
 target_include_directories(${SHARED_TARGET}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${CUB_ROOT_DIR}

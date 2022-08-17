@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <stdio.h>
-#include <cub/cub.cuh>
+#include "../../cub/cub/cub.cuh"
 #include <functional>
 #include <stdint.h>
 #include "NvInfer.h"

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "cub/cub.cuh"
+#include "../../cub/cub/cub.cuh"
 #include <array>
 #include "kernel.h"
 #include "bboxUtils.h"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "checkMacrosPlugin.h"
-#include "instanceNormalizationPlugin.h"
+//#include "instanceNormalizationPlugin.h"
 #include <algorithm>
 #include <cuda_fp16.h>
 #include <stdexcept>

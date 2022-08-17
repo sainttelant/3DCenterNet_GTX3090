@@ -23,7 +23,7 @@
 #include "plugin.h"
 #include <NvInfer.h>
 #include <assert.h>
-#include <cub/cub.cuh>
+#include "../../cub/cub/cub.cuh"
 #include <iostream>
 #include <stdio.h>
 #include <thrust/device_ptr.h>

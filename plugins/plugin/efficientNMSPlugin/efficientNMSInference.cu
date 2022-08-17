@@ -15,7 +15,8 @@
  */
 
 #include "bboxUtils.h"
-#include "cub/cub.cuh"
+
+#include "../cub/cub/cub.cuh"
 #include "cuda_runtime_api.h"
 
 #include "efficientNMSInference.cuh"
