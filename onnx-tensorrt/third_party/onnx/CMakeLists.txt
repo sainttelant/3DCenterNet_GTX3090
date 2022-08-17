@@ -1,12 +1,6 @@
 # Minimum CMake required
 cmake_minimum_required(VERSION 3.1)
 include(cmake/Utils.cmake)
-
-SET(CMAKE_BUILD_TYPE "Debug")
-
-SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
-
-SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 # Set default build type
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type not set - defaulting to Release")
