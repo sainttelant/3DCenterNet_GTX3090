@@ -17,8 +17,10 @@ int main(int argc, const char** argv){
     optparse::OptionParser parser;
     parser.add_option("-e", "--input-engine-file").dest("engineFile").set_default("test.engine")
             .help("the path of onnx file");
-    parser.add_option("-i", "--input-img-file").dest("imgFile").set_default("test.jpg");
-    parser.add_option("-c", "--input-video-file").dest("capFile").set_default("test.h264");
+    //parser.add_option("-i", "--input-img-file").dest("imgFile").set_default("test.jpg");
+    //parser.add_option("-c", "--input-video-file").dest("capFile").set_default("test.h264");
+    parser.add_option("-c", "--input-video-file").dest("capFile");
+    parser.add_option("-i", "--input-img-file").dest("imgFile");
     optparse::Values options = parser.parse_args(argc, argv);
     if(options["engineFile"].size() == 0){
         std::cout << "no file input" << std::endl;
@@ -56,7 +58,7 @@ int main(int argc, const char** argv){
         std::cout << "num_det: " << outputData[0] <<std::endl;
          for(int i = 0; i < num_det; i++)
          {
-             std::cout << "number: " <<i+1<<std::endl;
+             /* std::cout << "number: " <<i+1<<std::endl;
              std::cout << "classID: " << result[i].classId <<std::endl;
              std::cout << "bbox: " << result[i].bbox.x1<<" "<<result[i].bbox.y1<<" "<<result[i].bbox.x2<<" "<<result[i].bbox.y2<<std::endl;
              std::cout << "bbox_3d: " << result[i].bbox_3d.x1<<" "<<result[i].bbox_3d.y1<<" "<<result[i].bbox_3d.x2<<" "<<result[i].bbox_3d.y2<<" "<<result[i].bbox_3d.x3<<" "<<result[i].bbox_3d.y3<<" "<<result[i].bbox_3d.x4<<" "<<result[i].bbox_3d.y4<<" "<<result[i].bbox_3d.x5<<" "<<result[i].bbox_3d.y5<<" "<<result[i].bbox_3d.x6<<" "<<result[i].bbox_3d.y6<<" "<<result[i].bbox_3d.x7<<" "<<result[i].bbox_3d.y7<<" "<<result[i].bbox_3d.x8<<" "<<result[i].bbox_3d.y8<<std::endl;
@@ -66,7 +68,7 @@ int main(int argc, const char** argv){
              std::cout << "dep: " << result[i].dep<<std::endl;
              std::cout << "rot: " << result[i].rot.ang1 <<" "<<result[i].rot.ang2<<" "<<result[i].rot.ang3<<" "<<result[i].rot.ang4<<" "<<result[i].rot.ang5<<" "<<result[i].rot.ang6<<" "<<result[i].rot.ang7<<" "<<result[i].rot.ang8<<std::endl;
              std::cout << "rota_y: " << result[i].rota_y<<std::endl;
-             std::cout << std::endl;
+             std::cout << std::endl; */
          }
         drawImg(result,img,color,net.forwardFace);
 
