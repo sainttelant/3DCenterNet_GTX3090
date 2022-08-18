@@ -11,52 +11,59 @@ then run program!
 ### 1. Enviroments
 ```
 ubuntu 18.04
-TensorRT 8.2GA
+TensorRT 8.0.1.6
+jetson nx 4.6
 onnx-tensorrt for tensorrt8,please refer to other repos, onnx-tensorrt repo
-cuda 11.2
+cuda 10.2.30
+opencv4.1.1
 
 pip show torch
 Name: torch
-Version: 1.7.0+cu110
+Version: 1.7.0
 Summary: Tensors and Dynamic neural networks in Python with strong GPU acceleration
 Home-page: https://pytorch.org/
 Author: PyTorch Team
 Author-email: packages@pytorch.org
 License: BSD-3
-Location: /home/{Path}/anaconda3/envs/CenterTrack/lib/python3.6/site-packages
-Requires: numpy, typing-extensions, future, dataclasses
-Required-by: torchvision, torchaudio
+Location: /home/nvidia/.local/lib/python3.6/site-packages
+Requires: dataclasses, future, numpy, typing-extensions
+Required-by: torchvision
 
-GTX3090
+Version: 1.19.4
+Summary: NumPy is the fundamental package for array computing with Python.
+Home-page: https://www.numpy.org
+Author: Travis E. Oliphant et al.
+Author-email: 
+License: BSD
+Location: /usr/local/lib/python3.6/dist-packages
+Requires: 
+Required-by: onnx, torch, torchvision, uff
 
--- The C compiler identification is GNU 7.5.0
--- The CXX compiler identification is GNU 7.5.0
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/cc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- Found Protobuf: /usr/local/lib/libprotobuf.so;-lpthread (found version "3.15.8") 
-Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx_onnx2trt_onnx-ml.proto
-Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-operators_onnx2trt_onnx-ml.proto
-Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_party/onnx/onnx/onnx-data_onnx2trt_onnx.proto
--- 
+Name: onnx
+Version: 1.9.0
+Summary: Open Neural Network Exchange
+Home-page: https://github.com/onnx/onnx
+Author: ONNX
+Author-email: onnx-technical-discuss@lists.lfai.foundation
+License: Apache License v2.0
+Location: /usr/local/lib/python3.6/dist-packages
+Requires: numpy, protobuf, six, typing-extensions
+Required-by: 
+
+
+
+nxjetson version 
 -- ******** Summary ********
---   CMake version         : 3.22.2
---   CMake command         : /snap/cmake/1005/bin/cmake
+--   CMake version         : 3.24.0
+--   CMake command         : /usr/local/bin/cmake
 --   System                : Linux
 --   C++ compiler          : /usr/bin/c++
 --   C++ compiler version  : 7.5.0
 --   CXX flags             :  -Wall -Wno-deprecated-declarations -Wno-unused-function -Wnon-virtual-dtor
---   Build type            : Release
---   Compile definitions   : SOURCE_LENGTH=42;ONNX_NAMESPACE=onnx2trt_onnx
+--   Build type            : Debug
+--   Compile definitions   : ONNX_NAMESPACE=onnx2trt_onnx
 --   CMAKE_PREFIX_PATH     : 
---   CMAKE_INSTALL_PREFIX  : /usr/local
+--   CMAKE_INSTALL_PREFIX  : /home/nvidia/xuewei/3D/build/..
 --   CMAKE_MODULE_PATH     : 
 -- 
 --   ONNX version          : 1.8.0
@@ -71,23 +78,55 @@ Generated: /home/{Path}/TensorRT-CenterNet-3D-master/build/onnx-tensorrt/third_p
 --   Protobuf includes     : /usr/local/include
 --   Protobuf libraries    : /usr/local/lib/libprotobuf.so;-lpthread
 --   BUILD_ONNX_PYTHON     : OFF
--- Found CUDA headers at /usr/local/cuda/include
--- Found TensorRT headers at /usr/include/x86_64-linux-gnu
--- Find TensorRT libs at /usr/lib/x86_64-linux-gnu/libnvinfer.so;/usr/lib/x86_64-linux-gnu/libnvinfer_plugin.so
--- Found TENSORRT: /usr/include/x86_64-linux-gnu  
--- Found Threads: TRUE  
--- Found CUDA: /usr/local/cuda-11.2 (found version "11.2") 
--- Found TensorRT headers at /usr/include/x86_64-linux-gnu
--- Found TensorRT libs /usr/lib/x86_64-linux-gnu/libnvinfer.so
--- Found OpenCV: /usr/local (found version "4.5.1") 
--- Configuring done
--- Generating done
--- Build files have been written to: /home/{Path}/TensorRT-CenterNet-3D-master/build
-```
+-- Found TensorRT headers at /usr/include/aarch64-linux-gnu
+-- Find TensorRT libs at /usr/lib/aarch64-linux-gnu/libnvinfer.so;/usr/lib/aarch64-linux-gnu/libnvinfer_plugin.so
+-- Found CUDA: /usr/local/cuda-10.2 (found version "10.2") 
+-- Found TensorRT headers at /usr/include/aarch64-linux-gnu
+-- Found TensorRT libs /usr/lib/aarch64-linux-gnu/libnvinfer.so
+-- TENSORRT_LIBRARY_INFER:/usr/lib/aarch64-linux-gnu/libnvinfer.so
+CMake Warning (dev) at example/CMakeLists.txt:12:
+  Syntax Warning in cmake code at column 49
 
-``` 
-    And i use CenterTrack virtual environments to compile the programs, py3.6 version
-```
+  Argument not separated from preceding token by whitespace.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- cuda aarch64 path is <<<<<<<<<<,/usr/local/cuda-10.2/targets/aarch64-linux/include
+-- INCLUDE FIND_LIBRARY_CREATE=============
+
+-- INCLUDE FIND_LIBRARY_CREATE=============
+
+-- CMAKE_BINARY_DIR/home/nvidia/xuewei/3D/build
+Building for TensorRT version: 8.2.1, library version: 8
+-- 
+-- Targeting TRT Platform: aarch64
+Building in debug mode 
+-- CUDA version set to 10.2
+-- 
+-- cuDNN version set to 8.2
+-- 
+-- Protobuf version set to 3.15.8
+-- set cub root dir/home/nvidia/xuewei/3D/plugins/plugin/cub
+-- Found CUDA: /usr/local/cuda-10.2 (found suitable version "10.2", minimum required is "10.2") 
+-- PARSE_INCLUDE===========/home/nvidia/xuewei/3D/plugins/parsers/common
+-- PATH OF TRT_LIB_DIR/home/nvidia/xuewei/3D/build
+-- ========================= Importing and creating target nvinfer ==========================
+-- Looking for library nvinfer
+-- Library that was found /usr/lib/aarch64-linux-gnu/libnvinfer.so
+-- ==========================================================================================
+-- ========================= Importing and creating target nvuffparser ==========================
+-- Looking for library nvparsers
+-- Library that was found /usr/lib/aarch64-linux-gnu/libnvparsers.so
+-- ==========================================================================================
+-- GPU_ARCHS defined as 72. Generating CUDA code for SM 72
+--  CUB_PATH IS:<<<<<<<<<<<<wilson:/home/nvidia/xuewei/3D/plugins/plugin/cub
+--  CUB_PATH IS:/home/nvidia/xuewei/3D/plugins/plugin/cub
+-- BERT_CU_SOURCES IS DISABLE<<<<<<<<<<<<<<<<<<<<<<<<<< 
+
+-- ========================= Importing and creating target nvcaffeparser ==========================
+-- Looking for library nvparsers
+-- Library that was found /usr/lib/aarch64-linux-gnu/libnvparsers.so
+-- ==========================================================================================
+-- Configuring done
 
 
 ### 2. Performance
