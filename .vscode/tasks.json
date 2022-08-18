@@ -7,7 +7,7 @@
 			"command": "make",
 			"args": ["-j8"],
 			"options": {
-				"cwd": "/home/xuewei/tensort-3D/build"
+				"cwd": "/home/nvidia/xuewei/3D/build"
 			},
 			"group": "build",
 			"problemMatcher": ["$gcc"],
