@@ -4309,6 +4309,69 @@ DEFINE_BUILTIN_OP_IMPORTER(Squeeze)
     return {{squeezed}};
 }
 
+
+DEFINE_BUILTIN_OP_IMPORTER(DCNv2)
+{
+    ASSERT(inputs.at(0).is_tensor(),  ErrorCode::kUNSUPPORTED_NODE); // input
+    ASSERT(inputs.at(1).is_tensor(), ErrorCode::kUNSUPPORTED_NODE); // offset
+    ASSERT(inputs.at(2).is_tensor(), ErrorCode::kUNSUPPORTED_NODE); // mask
+    ASSERT(inputs.at(3).is_weights(), ErrorCode::kUNSUPPORTED_NODE); // weight
+
+    std::vector<nvinfer1::ITensor*> tensors {&inputs.at(0).tensor(), &inputs.at(1).tensor(), &inputs.at(2).tensor()};
+    auto kernel_weights = inputs.at(3).weights();
+    nvinfer1::Weights bias_weights;
+    if( inputs.size() == 5 ) {
+        ASSERT(inputs.at(4).is_weights(), ErrorCode::kUNSUPPORTED_NODE);
+        auto shaped_bias_weights = inputs.at(4).weights();
+        ASSERT(shaped_bias_weights.shape.nbDims == 1, ErrorCode::kINVALID_NODE);
+        ASSERT(shaped_bias_weights.shape.d[0] == kernel_weights.shape.d[0], ErrorCode::kINVALID_NODE);
+        bias_weights = shaped_bias_weights;
+    } else {
+        bias_weights = ShapedWeights::empty(kernel_weights.type);
+    }
+    int out_channel,in_channel,kernel_H,kernel_W,deformable_group,groups;
+    out_channel = kernel_weights.shape.d[0];
+    in_channel = kernel_weights.shape.d[1];
+    kernel_H = kernel_weights.shape.d[2];
+    kernel_W = kernel_weights.shape.d[3];
+
+    OnnxAttrs attrs(node, ctx);
+    deformable_group = attrs.get<int>("deformable_group", 1);
+    int dilation = attrs.get<std::vector<int>>("dilation", std::vector<int>{}).at(0);
+    groups = attrs.get<int>("groups", 1);
+    int padding = attrs.get<std::vector<int>>("padding", std::vector<int>{}).at(0);
+    std::vector<int> v_stride = attrs.get<std::vector<int>>("stride", std::vector<int>{});
+    
+    int stride = attrs.get<std::vector<int>>("stride", std::vector<int>{}).at(0);
+
+    //int padding = attrs.get<int>("padding",1);
+    //int stride = attrs.get<int>("stride",1);
+
+
+    const std::string pluginName = "DCNv2";
+    const std::string pluginVersion = "001";
+    std::vector<nvinfer1::PluginField> f;
+    f.emplace_back("in_channel", &in_channel, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("out_channel", &out_channel, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("kernel_h", &kernel_H, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("kernel_w", &kernel_W, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("deformable_group", &deformable_group, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("groups", &groups, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("padding", &padding, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("stride", &stride, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("dilation", &dilation, nvinfer1::PluginFieldType::kINT32, 1);
+    f.emplace_back("weight", kernel_weights.values, nvinfer1::PluginFieldType::kFLOAT32, kernel_weights.count());
+    f.emplace_back("bias", bias_weights.values, nvinfer1::PluginFieldType::kFLOAT32, bias_weights.count);
+
+    const auto plugin = createPlugin(getNodeName(node), importPluginCreator(pluginName, pluginVersion), f);
+
+    ASSERT(plugin != nullptr && "DcnV2 plugin was not found in the plugin registry!",
+        ErrorCode::kUNSUPPORTED_NODE);
+
+    RETURN_FIRST_OUTPUT(ctx->network()->addPluginV2(tensors.data() ,3, *plugin));
+    
+}
+
 DEFINE_BUILTIN_OP_IMPORTER(Sub)
 {
     return elementwiseHelper(ctx, node, inputs, nvinfer1::ElementWiseOperation::kSUB);
